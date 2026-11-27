@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Szachy dla trzech graczy</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232b2621'/%3E%3Cpath fill='%23f59e0b' stroke='%23161616' stroke-width='2.5' stroke-linejoin='round' d='M20 52h24v5H20zm3-5c0-6 4-9 8-12l-5-2c-3-1-5-4-4-8 1-4 5-7 7-11l-1-6 6 3 4-4 2 5c7 2 11 8 11 16 0 7-4 12-7 16v2H23zm9-25a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#1d1a17;--fg:#efe7da;--pn:#2b2621;--ac:#d9a45b}
 *{box-sizing:border-box}
@@ -31,11 +32,12 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
 .box h2{margin:0 0 12px;font-size:19px}
 .row{display:flex;align-items:center;gap:8px;margin:10px 0;flex-wrap:wrap}
 .row b{width:130px}
-.sw{width:40px;height:40px;border-radius:50%;border:3px solid #0006;padding:0;min-height:0}
+.sw{width:38px;height:38px;border-radius:50%;border:3px solid #0006;padding:0;min-height:0}
 .sw.sel{border-color:#fff;box-shadow:0 0 0 3px var(--ac)}
 .sw:disabled{opacity:.2;cursor:not-allowed}
 .promo-btn{font-size:44px;width:64px;height:64px;display:inline-flex;align-items:center;justify-content:center}
 #roomTag{background:#362f29;padding:6px 10px;border-radius:8px;font-weight:700;cursor:pointer;border:1px dashed var(--ac)}
+.win-sub{font-size:20px;font-weight:800;color:#fbbf24;margin:8px 0 14px;letter-spacing:.3px}
 </style></head><body>
 
 <div id="bar">
@@ -49,6 +51,7 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   <select id="theme"><option value="w1">Drewno jasne</option><option value="w2">Drewno ciemne</option><option value="m">Marmur</option><option value="pl">Plastik</option></select>
   <label><input type="checkbox" id="lab" checked>Numery pól</label>
   <button id="colors">Twój kolor</button>
+  <button id="drawBtn" style="display:none">Remis</button>
   <button id="mute">Dźwięk: wł.</button>
   <button id="reset" style="display:none">Zacznij od nowa</button>
 </div>
@@ -68,6 +71,10 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   <div class="box">
     <h2>Szachy dla trzech graczy</h2>
     <div class="row"><input type="text" id="nick" placeholder="Twój nick" style="width:100%"></div>
+    <div class="row" style="margin:8px 0">
+      <b style="width:auto">Kolor startowy:</b>
+      <div id="lobbyPick" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+    </div>
     <button id="createBtn" class="on" style="width:100%;margin-top:6px">Utwórz nowy pokój</button>
     <div style="text-align:center;margin:12px 0;opacity:.6">— LUB DOŁĄCZ KODEM —</div>
     <div class="row" style="margin:0">
@@ -100,13 +107,44 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   </div>
 </div>
 
+<!-- Okno końca gry -->
+<div id="endOv" class="ov">
+  <div class="box" style="text-align:center">
+    <h2 id="endTitle">Koniec gry</h2>
+    <div id="endSub" class="win-sub"></div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button id="endClose" class="on">Zobacz planszę</button>
+      <button id="endReset" style="display:none">Nowa partia</button>
+    </div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
 let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null];
-let pendingPromo = null;
+let pendingPromo = null, drawOfferBy = null, isDraw = false, endShownForKey = "";
+let lobbyColor = 0;
 
-const PAL=[["Czerwony","#d32f2f"],["Biały","#fafafa"],["Czarny","#161616"],["Niebieski","#1e88e5"],["Żółty","#fdd835"],["Fioletowy","#8e24aa"]];
+// 15 wyraźnie rozróżnialnych kolorów (styl Among Us)
+const PAL = [
+  ["Czerwony", "#e52521"],
+  ["Niebieski", "#132ed1"],
+  ["Zielony", "#11802d"],
+  ["Różowy", "#ed54ba"],
+  ["Pomarańczowy", "#ef7d0d"],
+  ["Żółty", "#f5f557"],
+  ["Czarny", "#3f474e"],
+  ["Biały", "#d6e0f0"],
+  ["Fioletowy", "#6b2fbb"],
+  ["Brązowy", "#71491e"],
+  ["Cyjan", "#38fedc"],
+  ["Limonkowy", "#50ef39"],
+  ["Bordowy", "#6b2b3c"],
+  ["Brzoskwiniowy", "#ecc0d3"],
+  ["Lawendowy", "#9484cf"]
+];
+
 const G={p:"♟",r:"♜",n:"♞",b:"♝",q:"♛",k:"♚"};
 const TH={w1:["#ecc995","#a86a3a",1],w2:["#c99a63","#5b3920",1],m:["#e9eaed","#6a7280",2],pl:["#f1e7d0","#2f7d5b",0]};
 const H={B0:[610,1300],B1:[1360,1300],R:[1730,655],T1:[1360,8],T0:[610,8],L:[240,655]},C=[985,655];
@@ -207,7 +245,6 @@ function apply(a,b,promo,quiet){
 function rebuild(n,quiet=true){
  setup();notes=[];
  for(let k=0;k<n;k++){notes.push(apply(mv[k][0],mv[k][1],mv[k][2],quiet && k<n-1));}
- // Dokończ generowanie notatek dla ruchów po podglądzie
  if(n<mv.length){
   const snapB=B.map(x=>x?{...x}:null),snapTurn=turn,snapAlive=[...alive],snapLast=last,snapStatus=status;
   for(let k=n;k<mv.length;k++)notes.push(apply(mv[k][0],mv[k][1],mv[k][2],true));
@@ -217,13 +254,11 @@ function rebuild(n,quiet=true){
 }
 
 function pick(i){
- if(pos!==mv.length) return; // W trybie podglądu historii nie ruszamy
+ if(pos!==mv.length||isDraw) return;
  if(sel!=null&&hl.includes(i)){
   const p=B[sel];
-  // Sprawdź czy to promocja piona
   let isPromo=false;
   if(p.t=="p"){
-   // Symuluj kierunek po ruchu
    let nh=p.h;const f=go(sel,p.h),f2=f&&go(f[0],(f[1]+2)%4);
    if(f&&f[0]==i)nh=(f[1]+2)%4;
    else if(f2&&f2[0]==i)nh=(f2[1]+2)%4;
@@ -247,7 +282,7 @@ const shade=(h,p)=>{const n=parseInt(h.slice(1),16),f=c=>Math.max(0,Math.min(255
 const lum=h=>{const n=parseInt(h.slice(1),16);return((n>>16)*.3+(n>>8&255)*.59+(n&255)*.11)};
 
 function draw(){
- const rot = MY_SEAT > 0 ? MY_SEAT * -120 : 0; // Obrót planszy tak, by gracz był na dole
+ const rot = MY_SEAT > 0 ? MY_SEAT * -120 : 0;
  const T=TH[theme],cl=cols.map(i=>PAL[i][1]),hex=Object.values(H).map(p=>p.join(",")).join(" ");
  let h=`<defs><clipPath id="hx"><polygon points="${hex}"/></clipPath>
 <filter id="wd" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.09" numOctaves="4" seed="7"/><feColorMatrix values="0 0 0 0 .22 0 0 0 0 .11 0 0 0 0 .03 1.7 0 0 0 -.55"/></filter>
@@ -267,6 +302,13 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  if(T[2]==2)h+=`<g clip-path="url(#hx)" style="mix-blend-mode:multiply;pointer-events:none"><rect x="230" y="0" width="1520" height="1310" filter="url(#mb)" opacity=".6"/></g>`;
  if(lab.checked)cells.forEach(c=>{if(!B[c.id])h+=`<text class="lb" x="${c.ctr[0]}" y="${c.ctr[1]}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="${col[c.id]?"#ffffffb0":"#000000a0"}">${c.name}</text>`;});
  if(last)last.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#ffe14d77" pointer-events="none"/>`);
+ // Lekkie podświetlenie pola króla w szachu
+ [0,1,2].forEach(o=>{
+  if(alive[o] && inCheck(o)){
+   const ki=B.findIndex(p=>p&&p.o==o&&p.t=="k");
+   if(ki>=0) h+=`<polygon points="${poly(ki)}" fill="#ff2a2a66" stroke="#ff3b30" stroke-width="4" pointer-events="none"/>`;
+  }
+ });
  marks.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#e5484d99" pointer-events="none"/>`);
  if(sel!=null)h+=`<polygon points="${poly(sel)}" fill="#4cc9f088" pointer-events="none"/>`;
  cells.forEach(c=>{const p=B[c.id];if(p){const f=cl[p.o];h+=`<text class="p" x="${c.ctr[0]}" y="${c.ctr[1]+4}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="url(#pg${p.o})" stroke="${lum(f)<90?"#e8e0d0":"#000"}">${G[p.t]}\uFE0E</text>`;}});
@@ -276,16 +318,53 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  h+=`</g>`;
  s.innerHTML=h;
 
+ const finalStatus = isDraw ? "Remis" : status;
  const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
- turn_.textContent=status?status:w>=0?`Wygrywa: ${playerName(w)}`:`Ruch: ${playerName(turn)}${turn===MY_SEAT?" (TWÓJ)":""}${inCheck(turn)?" – SZACH!":""}`;
+ turn_.textContent=finalStatus?finalStatus:w>=0?`Wygrywa: ${playerName(w)} — wygrales fartem`:`Ruch: ${playerName(turn)}${turn===MY_SEAT?" (TWÓJ)":""}${inCheck(turn)?" – SZACH!":""}`;
  turn_.style.color=cl[w>=0?w:turn];
+
+ const drawBtn=$("drawBtn");
+ if(MY_SEAT>=0 && !finalStatus && w<0){
+  drawBtn.style.display="inline-block";
+  if(drawOfferBy===null){
+   drawBtn.classList.remove("on");
+   drawBtn.textContent="Remis";
+  } else if(drawOfferBy===MY_SEAT){
+   drawBtn.classList.add("on");
+   drawBtn.textContent="Anuluj remis";
+  } else {
+   drawBtn.classList.add("on");
+   drawBtn.textContent=`Akceptuj remis (${playerName(drawOfferBy)})`;
+  }
+ } else {
+  drawBtn.style.display="none";
+ }
+
+ const gameKey = `${mv.length}|${w}|${finalStatus}`;
+ if((w>=0 || finalStatus) && pos===mv.length && endShownForKey!==gameKey){
+  endShownForKey=gameKey;
+  if(w>=0){
+   const winName=playerName(w);
+   $("endTitle").textContent=`Wygrywa ${winName}!`;
+   $("endSub").textContent=`${winName} — wygrales fartem`;
+   $("endSub").style.color=cl[w];
+  } else {
+   $("endTitle").textContent="Partia zakończona remisem";
+   $("endSub").textContent=finalStatus;
+   $("endSub").style.color="var(--fg)";
+  }
+  $("endReset").style.display=IS_HOST?"inline-block":"none";
+  $("endOv").style.display="flex";
+ } else if(w<0 && !finalStatus){
+  endShownForKey="";
+  $("endOv").style.display="none";
+ }
 
  undo.disabled=pos==0;redo.disabled=pos>=mv.length;
  $("live").style.display=pos<mv.length?"inline-block":"none";
  $("colors").style.display=MY_SEAT>=0?"inline-block":"none";
  $("reset").style.display=IS_HOST?"inline-block":"none";
 
- // Renderuj miejsca w pokoju
  $("seats").innerHTML=[0,1,2].map(o=>{
   const occ=SEATS[o];
   return `<div class="seat ${o===MY_SEAT?"me":""}">
@@ -294,7 +373,6 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
   </div>`;
  }).join("");
 
- // Renderuj historię ruchów
  $("list").innerHTML=notes.map((n,idx)=>`<li class="${idx===pos-1?"cur":""}" onclick="jump(${idx+1})"><span class="dot" style="background:${cl[n.o]}"></span><span>${idx+1}. ${n.text}</span></li>`).join("");
  const lst=$("list");if(pos===mv.length)lst.scrollTop=lst.scrollHeight;
 }
@@ -303,7 +381,7 @@ window.jump=n=>{rebuild(n,true);draw();};
 
 const $=id=>document.getElementById(id),s=$("s"),turn_=$("turn"),lab=$("lab"),undo=$("undo"),redo=$("redo");
 const cellAt=(x,y)=>{const t=document.elementFromPoint(x,y);const c=t&&t.closest&&t.closest("[data-i]");return c?+c.dataset.i:null;};
-const over=()=>alive.reduce((x,y)=>x+y,0)<2||!!status;
+const over=()=>alive.reduce((x,y)=>x+y,0)<2||!!status||isDraw;
 
 s.addEventListener("contextmenu",e=>e.preventDefault());
 s.addEventListener("pointerdown",e=>{if(e.button==2||arrMode)rs=cellAt(e.clientX,e.clientY);});
@@ -320,8 +398,10 @@ $("clr").onclick=clearDraw;s.addEventListener("dblclick",clearDraw);
 $("arr").onclick=e=>{arrMode=!arrMode;e.target.classList.toggle("on",arrMode);e.target.textContent="Strzałki: "+(arrMode?"wł.":"wył.");};
 $("theme").onchange=e=>{theme=e.target.value;draw();};lab.onchange=draw;
 $("mute").onclick=e=>{mute=!mute;e.target.textContent="Dźwięk: "+(mute?"wył.":"wł.");};
+$("drawBtn").onclick=()=>socket.emit("offerDraw");
+$("endClose").onclick=()=>{$("endOv").style.display="none";};
+$("endReset").onclick=()=>{$("endOv").style.display="none";socket.emit("resetGame");};
 
-// Promocja piona kliknięcie
 $("promoOv").addEventListener("click",e=>{
  const b=e.target.closest(".promo-btn");if(!b||!pendingPromo)return;
  socket.emit("makeMove",[pendingPromo[0],pendingPromo[1],b.dataset.p]);
@@ -329,7 +409,6 @@ $("promoOv").addEventListener("click",e=>{
  $("promoOv").style.display="none";draw();
 });
 
-// Reset tylko dla hosta
 let rt=null;
 $("reset").onclick=e=>{
  if(!rt){e.target.textContent="Na pewno? Kliknij ponownie";rt=setTimeout(()=>{rt=null;e.target.textContent="Zacznij od nowa";},3000);return;}
@@ -337,7 +416,17 @@ $("reset").onclick=e=>{
  socket.emit("resetGame");
 };
 
-// Wybór koloru gracza
+function renderLobbyPick(){
+ $("lobbyPick").innerHTML=PAL.map((c,i)=>`<button type="button" class="sw ${lobbyColor===i?"sel":""}" data-i="${i}" title="${c[0]}" style="background:${c[1]}"></button>`).join("");
+}
+$("lobbyPick").addEventListener("click",e=>{
+ const b=e.target.closest(".sw");
+ if(!b)return;
+ lobbyColor=+b.dataset.i;
+ renderLobbyPick();
+});
+renderLobbyPick();
+
 $("colors").onclick=openPick;
 function openPick(){
  if(MY_SEAT<0)return;
@@ -354,16 +443,14 @@ $("pick").addEventListener("click",e=>{
 });
 $("go").onclick=()=>{$("ov").style.display="none";draw();};
 
-// Kopiowanie linku zaproszenia
 $("roomTag").onclick=()=>{
  const url=`${location.origin}${location.pathname}?room=${ROOM_CODE}`;
  navigator.clipboard?.writeText(url);
  const old=$("roomTag").textContent;
  $("roomTag").textContent="Skopiowano link!";
- setTimeout(()=>$("roomTag").textContent=old,1500);
+ setTimeout(()=>{$("roomTag").textContent=old;},1500);
 };
 
-// Obsługa Lobby i Socket.io
 const urlRoom=new URLSearchParams(location.search).get("room");
 if(urlRoom) $("codeIn").value=urlRoom.toUpperCase();
 $("nick").value=localStorage.getItem("sz3_nick")||"";
@@ -372,7 +459,7 @@ function enterRoom(code){
  const nick=$("nick").value.trim()||"Gracz";
  localStorage.setItem("sz3_nick",nick);
  socket.emit("setName",nick);
- socket.emit("joinRoom",{roomCode:code,name:nick},res=>{
+ socket.emit("joinRoom",{roomCode:code,name:nick,preferredColor:lobbyColor},res=>{
   if(res.error){$("lobbyErr").textContent=res.error;return;}
   ROOM_CODE=res.state.code;
   $("lobby").style.display="none";
@@ -391,9 +478,10 @@ function syncState(st,initial=false){
  IS_HOST=(st.hostId===socket.id);
  MY_SEAT=SEATS.findIndex(s=>s&&s.id===socket.id);
  cols=st.cols;
+ drawOfferBy=st.drawOfferBy ?? null;
+ isDraw=!!st.isDraw;
  const prevLen=mv.length;
  mv=st.mv;
- // Jeśli byliśmy na bieżąco (albo gra została zresetowana), przesuń widok na koniec
  if(initial || pos===prevLen || mv.length<pos){
   rebuild(mv.length, initial);
  } else {
