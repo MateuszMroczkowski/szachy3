@@ -66,7 +66,6 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   </div>
 </div>
 
-<!-- Okno startowe (Lobby) -->
 <div id="lobby" class="ov" style="display:flex">
   <div class="box">
     <h2>Szachy dla trzech graczy</h2>
@@ -85,7 +84,6 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   </div>
 </div>
 
-<!-- Okno wyboru koloru -->
 <div id="ov" class="ov">
   <div class="box">
     <h2>Wybierz swój kolor</h2>
@@ -94,7 +92,6 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   </div>
 </div>
 
-<!-- Okno promocji piona -->
 <div id="promoOv" class="ov">
   <div class="box" style="text-align:center">
     <h2>Promocja piona</h2>
@@ -107,7 +104,6 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
   </div>
 </div>
 
-<!-- Okno końca gry -->
 <div id="endOv" class="ov">
   <div class="box" style="text-align:center">
     <h2 id="endTitle">Koniec gry</h2>
@@ -126,7 +122,6 @@ let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null];
 let pendingPromo = null, drawOfferBy = null, isDraw = false, endShownForKey = "";
 let lobbyColor = 0;
 
-// 15 wyraźnie rozróżnialnych kolorów (styl Among Us)
 const PAL = [
   ["Czerwony", "#e52521"],
   ["Niebieski", "#132ed1"],
@@ -302,7 +297,6 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  if(T[2]==2)h+=`<g clip-path="url(#hx)" style="mix-blend-mode:multiply;pointer-events:none"><rect x="230" y="0" width="1520" height="1310" filter="url(#mb)" opacity=".6"/></g>`;
  if(lab.checked)cells.forEach(c=>{if(!B[c.id])h+=`<text class="lb" x="${c.ctr[0]}" y="${c.ctr[1]}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="${col[c.id]?"#ffffffb0":"#000000a0"}">${c.name}</text>`;});
  if(last)last.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#ffe14d77" pointer-events="none"/>`);
- // Lekkie podświetlenie pola króla w szachu
  [0,1,2].forEach(o=>{
   if(alive[o] && inCheck(o)){
    const ki=B.findIndex(p=>p&&p.o==o&&p.t=="k");
