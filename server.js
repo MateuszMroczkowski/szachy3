@@ -676,5 +676,3 @@ socket.on("roomUpdate",st=>syncState(st,false));
 rebuild(0,true);draw();
 </script></body></html>
 ```[cite: 8]
-
-Podmień oba pliki na GitHubie — Render automatycznie przebuduje aplikację[cite: 6, 8]. Jeśli coś będzie wymagało drobnego dopieszczenia po testach, daj znać.
