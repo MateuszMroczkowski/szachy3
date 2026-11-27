@@ -13,14 +13,22 @@ button,select{cursor:pointer}
 button.on{background:var(--ac);color:#201a13;font-weight:600}
 button:disabled{opacity:.4;cursor:not-allowed}
 label{display:inline-flex;gap:5px;align-items:center;min-height:40px}
-#main{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:10px;padding:6px}
-svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:manipulation}
-#side{width:min(98vw,270px);background:var(--pn);border-radius:10px;padding:10px}
+#boardWrap{flex:1 1 520px;display:flex;flex-direction:column;align-items:center;min-width:0}
+#gameClockBar{display:inline-flex;align-items:center;gap:8px;background:var(--pn);border:1px solid #fff2;border-radius:999px;padding:6px 14px;margin-bottom:8px;font-size:14px;font-weight:600}
+#gameClockVal{font-variant-numeric:tabular-nums;color:#fbbf24;font-weight:800;font-size:15px}
+#main{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:10px;padding:6px;max-width:1600px;margin:0 auto}
+svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:manipulation}
+#side{width:min(98vw,285px);background:var(--pn);border-radius:10px;padding:10px}
 #side h3{margin:4px 0 8px;font-size:14px;border-bottom:1px solid #fff2;padding-bottom:4px}
-#seats{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
-.seat{display:flex;align-items:center;justify-content:space-between;background:#362f29;padding:6px 8px;border-radius:6px;font-size:13px}
+#seats{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.seat{display:flex;flex-direction:column;gap:5px;background:#362f29;padding:7px 9px;border-radius:8px;font-size:13px}
 .seat.me{outline:2px solid var(--ac)}
-#list{max-height:48vh;overflow:auto;margin:0;padding:0;list-style:none}
+.seat.thinking{background:#473b2d;box-shadow:inset 0 0 0 1px #fbbf2488}
+.seat-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.seat-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#d8cbb8}
+.think-val{font-variant-numeric:tabular-nums;font-weight:700;color:#efe7da}
+.seat.thinking .think-val{color:#fbbf24}
+#list{max-height:44vh;overflow:auto;margin:0;padding:0;list-style:none}
 #list li{padding:6px 8px;border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center}
 #list li.cur{background:var(--ac);color:#201a13;font-weight:600}
 .dot{width:12px;height:12px;border-radius:50%;border:1px solid #fff8;flex:none}
@@ -57,9 +65,15 @@ svg{width:min(98vw,calc(88vh*1.15));height:auto;user-select:none;touch-action:ma
 </div>
 
 <div id="main">
-  <svg id="s" viewBox="230 0 1510 1310"></svg>
+  <div id="boardWrap">
+    <div id="gameClockBar">
+      <span>Czas gry:</span>
+      <span id="gameClockVal">00:00</span>
+    </div>
+    <svg id="s" viewBox="230 0 1510 1310"></svg>
+  </div>
   <div id="side">
-    <h3>Gracze w pokoju</h3>
+    <h3>Gracze i czas myślenia</h3>
     <div id="seats"></div>
     <h3>Historia ruchów</h3>
     <ul id="list"></ul>
@@ -122,6 +136,14 @@ let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null];
 let pendingPromo = null, drawOfferBy = null, isDraw = false, endShownForKey = "";
 let lobbyColor = 0;
 
+let clockState = {
+  gameElapsedMs: 0,
+  thinkMs: [0, 0, 0],
+  activeTurn: 0,
+  running: false,
+  receivedAt: Date.now()
+};
+
 const PAL = [
   ["Czerwony", "#e52521"],
   ["Niebieski", "#132ed1"],
@@ -165,6 +187,52 @@ const SIDES=[{a:H.B0,b:H.B1,in:[0,-1],set:"rnbqkbnr"},{a:H.L,b:H.T0,in:[.866,.5]
 let B,turn,alive,sel=null,hl=[],arrows=[],marks=new Set(),rs=null,last=null,homeRow=[],status="",mv=[],notes=[],pos=0,cols=[0,1,2],theme="w1",arrMode=false;
 
 function playerName(o){return SEATS[o]?.name || `Gracz ${o+1}`;}
+
+function formatDuration(ms){
+ const totalSec=Math.max(0,Math.floor((ms||0)/1000));
+ const hrs=Math.floor(totalSec/3600);
+ const mins=Math.floor((totalSec%3600)/60);
+ const secs=totalSec%60;
+ const pad=n=>String(n).padStart(2,"0");
+ return hrs>0?`${hrs}:${pad(mins)}:${pad(secs)}`:`${pad(mins)}:${pad(secs)}`;
+}
+
+function getLiveClocks(now=Date.now()){
+ const extra=clockState.running?Math.max(0,now-clockState.receivedAt):0;
+ const thinkMs=[0,1,2].map(o=>(clockState.thinkMs[o]||0)+(clockState.running&&clockState.activeTurn===o?extra:0));
+ const gameElapsedMs=(clockState.gameElapsedMs||0)+extra;
+ return {gameElapsedMs,thinkMs};
+}
+
+function renderClocks(){
+ const {gameElapsedMs,thinkMs}=getLiveClocks();
+ $("gameClockVal").textContent=formatDuration(gameElapsedMs);
+ [0,1,2].forEach(o=>{
+  const el=document.getElementById(`think-${o}`);
+  if(el) el.textContent=formatDuration(thinkMs[o]);
+ });
+}
+
+function isGameOverNow(){
+ const finalStatus=isDraw?"Remis":status;
+ const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
+ return !!(finalStatus||w>=0);
+}
+
+function emitMoveWithMeta(a,b,promo){
+ const snapB=B.map(x=>x?{...x}:null);
+ const snapTurn=turn;
+ const snapAlive=[...alive];
+ const snapStatus=status;
+ apply(a,b,promo,true);
+ const nextTurn=turn;
+ const nextOver=isGameOverNow();
+ B=snapB;
+ turn=snapTurn;
+ alive=snapAlive;
+ status=snapStatus;
+ socket.emit("makeMove",[a,b,promo||null],{nextTurn,gameOver:nextOver});
+}
 
 function setup(){
  B=Array(96).fill(null);status="";turn=0;alive=[1,1,1];sel=null;hl=[];last=null;
@@ -265,7 +333,7 @@ function pick(i){
    $("promoOv").style.display="flex";
    return;
   }
-  socket.emit("makeMove",[sel,i,null]);
+  emitMoveWithMeta(sel,i,null);
   sel=null;hl=[];arrows=[];marks.clear();
  }
  else if(turn===MY_SEAT && B[i] && B[i].o===MY_SEAT){sel=i;hl=legal(i);snd(700,.05);}
@@ -359,13 +427,24 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  $("colors").style.display=MY_SEAT>=0?"inline-block":"none";
  $("reset").style.display=IS_HOST?"inline-block":"none";
 
+ const {thinkMs}=getLiveClocks();
+ const gameOver=isGameOverNow();
  $("seats").innerHTML=[0,1,2].map(o=>{
   const occ=SEATS[o];
-  return `<div class="seat ${o===MY_SEAT?"me":""}">
-   <span><span class="dot" style="display:inline-block;background:${cl[o]};margin-right:6px"></span>${occ?occ.name:"<i>Wolne miejsce</i>"}</span>
-   ${!occ?`<button style="min-height:26px;padding:0 8px;font-size:12px" onclick="socket.emit('takeSeat',${o})">Usiądź</button>`:""}
+  const isThinking=!gameOver && turn===o && alive[o];
+  return `<div class="seat ${o===MY_SEAT?"me":""} ${isThinking?"thinking":""}">
+   <div class="seat-top">
+    <span><span class="dot" style="display:inline-block;background:${cl[o]};margin-right:6px"></span>${occ?occ.name:"<i>Wolne miejsce</i>"}</span>
+    ${!occ?`<button style="min-height:26px;padding:0 8px;font-size:12px" onclick="socket.emit('takeSeat',${o})">Usiądź</button>`:""}
+   </div>
+   <div class="seat-meta">
+    <span>${isThinking?"Myśli teraz...":alive[o]?"Czas myślenia":"Odpadł"}</span>
+    <span class="think-val" id="think-${o}">${formatDuration(thinkMs[o])}</span>
+   </div>
   </div>`;
  }).join("");
+
+ renderClocks();
 
  $("list").innerHTML=notes.map((n,idx)=>`<li class="${idx===pos-1?"cur":""}" onclick="jump(${idx+1})"><span class="dot" style="background:${cl[n.o]}"></span><span>${idx+1}. ${n.text}</span></li>`).join("");
  const lst=$("list");if(pos===mv.length)lst.scrollTop=lst.scrollHeight;
@@ -398,7 +477,7 @@ $("endReset").onclick=()=>{$("endOv").style.display="none";socket.emit("resetGam
 
 $("promoOv").addEventListener("click",e=>{
  const b=e.target.closest(".promo-btn");if(!b||!pendingPromo)return;
- socket.emit("makeMove",[pendingPromo[0],pendingPromo[1],b.dataset.p]);
+ emitMoveWithMeta(pendingPromo[0],pendingPromo[1],b.dataset.p);
  pendingPromo=null;sel=null;hl=[];arrows=[];marks.clear();
  $("promoOv").style.display="none";draw();
 });
@@ -474,6 +553,19 @@ function syncState(st,initial=false){
  cols=st.cols;
  drawOfferBy=st.drawOfferBy ?? null;
  isDraw=!!st.isDraw;
+ if(st.clock){
+  clockState={
+   gameElapsedMs:st.clock.gameElapsedMs||0,
+   thinkMs:[
+    st.clock.thinkMs?.[0]||0,
+    st.clock.thinkMs?.[1]||0,
+    st.clock.thinkMs?.[2]||0
+   ],
+   activeTurn:typeof st.clock.activeTurn==="number"?st.clock.activeTurn:0,
+   running:!!st.clock.running,
+   receivedAt:Date.now()
+  };
+ }
  const prevLen=mv.length;
  mv=st.mv;
  if(initial || pos===prevLen || mv.length<pos){
@@ -486,6 +578,7 @@ function syncState(st,initial=false){
 }
 
 socket.on("roomUpdate",st=>syncState(st,false));
+setInterval(renderClocks,250);
 
 rebuild(0,true);draw();
 </script></body></html>
