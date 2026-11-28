@@ -14,9 +14,12 @@ button.on{background:var(--ac);color:#201a13;font-weight:600}
 button:disabled{opacity:.4;cursor:not-allowed}
 label{display:inline-flex;gap:5px;align-items:center;min-height:40px}
 #boardWrap{flex:1 1 520px;display:flex;flex-direction:column;align-items:center;min-width:0}
-#gameClockBar{display:inline-flex;align-items:center;gap:8px;background:var(--pn);border:1px solid #fff2;border-radius:999px;padding:6px 14px;margin-bottom:8px;font-size:14px;font-weight:600}
+#gameClockBar{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;background:var(--pn);border:1px solid #fff2;border-radius:999px;padding:6px 14px;margin-bottom:8px;font-size:14px;font-weight:600}
 #gameClockVal{font-variant-numeric:tabular-nums;color:#fbbf24;font-weight:800;font-size:15px}
 .mode-pill{background:#362f29;border:1px solid #fff2;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;color:#fbbf24}
+.clock-state-pill{background:#362f29;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
+.clock-state-pill.paused{color:#f59e0b;border:1px solid #f59e0b55}
+.clock-state-pill.live{color:#50ef39;border:1px solid #50ef3955}
 #main{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:10px;padding:6px;max-width:1600px;margin:0 auto}
 svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:manipulation}
 #side{width:min(98vw,285px);background:var(--pn);border-radius:10px;padding:10px}
@@ -63,6 +66,8 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 <div id="bar">
   <span id="roomTag" title="Kliknij, aby skopiować link zaproszenia">Pokój: —</span>
   <span id="modeBadge" class="mode-pill">Classic 3v3</span>
+  <button id="switchModeBtn" style="display:none" title="Zmień tryb gry w pokoju">Zmień tryb</button>
+  <button id="confirmStartBtn" class="on" style="display:none" title="Zatwierdź start i uruchom zegary">Zatwierdź start</button>
   <span id="turn">Łączenie...</span>
   <button id="undo" title="Podgląd poprzedniego ruchu">◀</button>
   <button id="redo" title="Podgląd następnego ruchu">▶</button>
@@ -84,6 +89,7 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
       <span id="gameClockVal">00:00</span>
       <span style="opacity:.45">•</span>
       <span id="timePoolInfo">Pula: 2h (po 40:00 / gracz)</span>
+      <span id="clockStateBadge" class="clock-state-pill paused">Oczekiwanie (0/3)</span>
     </div>
     <svg id="s" viewBox="230 0 1510 1310"></svg>
   </div>
@@ -146,6 +152,31 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
   </div>
 </div>
 
+<div id="modeSwitchOv" class="ov">
+  <div class="box">
+    <h2>Zmień tryb gry</h2>
+    <div class="mode-grid" id="roomModePick">
+      <button type="button" class="mode-card" data-mode="classic">
+        <span class="mode-ico">♟</span>
+        <span class="mode-name">Classic 3v3</span>
+        <span class="mode-sub">8 pól / bok</span>
+      </button>
+      <button type="button" class="mode-card" data-mode="big">
+        <span class="mode-ico">♜</span>
+        <span class="mode-name">Big 3v3</span>
+        <span class="mode-sub">10 pól / bok</span>
+      </button>
+      <button type="button" class="mode-card soon" data-mode="monopoly" disabled title="Tryb w przygotowaniu">
+        <span class="mode-ico">🎲</span>
+        <span class="mode-name">Monopoly</span>
+        <span class="mode-sub">Wkrótce</span>
+      </button>
+    </div>
+    <p style="font-size:12px;opacity:.78;margin:10px 0 0">Zmiana trybu zresetuje aktualne ruchy i ustawi nową planszę dla całego pokoju.</p>
+    <button id="closeModeSwitch" class="on" style="width:100%;margin-top:12px">Zamknij</button>
+  </div>
+</div>
+
 <div id="ov" class="ov">
   <div class="box">
     <h2>Wybierz swój kolor</h2>
@@ -181,7 +212,7 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 <script>
 const socket = io();
 let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null];
-let pendingPromo = null, drawOfferBy = null, isDraw = false, endShownForKey = "";
+let pendingPromo = null, drawOfferBy = null, isDraw = false, serverGameOver = false, endShownForKey = "";
 let lobbyColor = 0, lobbyMode = "classic", lobbyMinutes = 120, activeMode = "classic";
 let timeoutEliminated = [false, false, false], timeoutStatus = "";
 
@@ -292,6 +323,7 @@ function minutesLabel(mins){
   if(mins===60)return"1h";
   return"30m";
 }
+function seatedCount(){return SEATS.filter(Boolean).length;}
 
 function formatDuration(ms){
  const totalSec=Math.max(0,Math.floor((ms||0)/1000));
@@ -316,11 +348,11 @@ function getLiveClocks(now=Date.now()){
 function isGameOverNow(){
  const finalStatus=isDraw?"Remis":(status||timeoutStatus);
  const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
- return !!(finalStatus||w>=0);
+ return !!(finalStatus||w>=0||serverGameOver);
 }
 
 function handleTimeoutsIfNeeded(){
- if(!B||!alive)return false;
+ if(!B||!alive||!clockState.running)return false;
  if(isGameOverNow())return false;
  const {remainingMs}=getLiveClocks();
  let changed=false;
@@ -348,6 +380,21 @@ function renderClocks(){
  const mins=clockState.totalMinutes||120;
  const perPlayer=clockState.perPlayerMs||Math.floor((mins*60*1000)/3);
  $("timePoolInfo").textContent=`Pula: ${minutesLabel(mins)} (po ${formatDuration(perPlayer)} / gracz)`;
+
+ const badge=$("clockStateBadge");
+ if(ROOM_CODE){
+  if(isGameOverNow()){
+   badge.className="clock-state-pill paused";
+   badge.textContent="Zatrzymany";
+  }else if(clockState.running){
+   badge.className="clock-state-pill live";
+   badge.textContent="Czas leci";
+  }else{
+   badge.className="clock-state-pill paused";
+   badge.textContent=`Czeka na start (${seatedCount()}/3)`;
+  }
+ }
+
  [0,1,2].forEach(o=>{
   const el=document.getElementById(`think-${o}`);
   if(el) el.textContent=formatDuration(remainingMs[o]);
@@ -542,7 +589,7 @@ function rebuild(n,quiet=true){
 }
 
 function pick(i){
- if(pos!==mv.length||isDraw||timeoutStatus) return;
+ if(pos!==mv.length||isDraw||timeoutStatus||serverGameOver) return;
  if(sel!=null&&hl.includes(i)){
   const p=B[sel];
   let isPromo=false;
@@ -608,14 +655,17 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  s.innerHTML=h;
 
  $("modeBadge").textContent=modeLabel(activeMode);
+ $("switchModeBtn").style.display=ROOM_CODE?"inline-block":"none";
+ $("confirmStartBtn").style.display=(ROOM_CODE && !clockState.running && !isGameOverNow())?"inline-block":"none";
 
  const finalStatus = isDraw ? "Remis" : (status || timeoutStatus);
  const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
- turn_.textContent=finalStatus?finalStatus:w>=0?`Wygrywa: ${playerName(w)} — wygrales fartem`:`Ruch: ${playerName(turn)}${turn===MY_SEAT?" (TWÓJ)":""}${inCheck(turn)?" – SZACH!":""}`;
+ const waitPrefix = (!clockState.running && !finalStatus && w<0 && !serverGameOver) ? "[Czeka na start] " : "";
+ turn_.textContent=finalStatus?finalStatus:w>=0?`Wygrywa: ${playerName(w)} — wygrales fartem`:`${waitPrefix}Ruch: ${playerName(turn)}${turn===MY_SEAT?" (TWÓJ)":""}${inCheck(turn)?" – SZACH!":""}`;
  turn_.style.color=cl[w>=0?w:turn];
 
  const drawBtn=$("drawBtn");
- if(MY_SEAT>=0 && !finalStatus && w<0){
+ if(MY_SEAT>=0 && !finalStatus && w<0 && !serverGameOver){
   drawBtn.style.display="inline-block";
   if(drawOfferBy===null){
    drawBtn.classList.remove("on");
@@ -631,7 +681,7 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
   drawBtn.style.display="none";
  }
 
- const gameKey = `${activeMode}|${mv.length}|${w}|${finalStatus}`;
+ const gameKey = `${activeMode}|${mv.length}|${w}|${finalStatus}|${serverGameOver}`;
  if((w>=0 || finalStatus) && pos===mv.length && endShownForKey!==gameKey){
   endShownForKey=gameKey;
   if(w>=0){
@@ -660,7 +710,7 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  const gameOver=isGameOverNow();
  $("seats").innerHTML=[0,1,2].map(o=>{
   const occ=SEATS[o];
-  const isThinking=!gameOver && turn===o && alive[o];
+  const isThinking=!gameOver && clockState.running && turn===o && alive[o];
   const metaText=isThinking?"Myśli teraz...":alive[o]?"Pozostały czas":(timeoutEliminated[o]?"Czas minął":"Odpadł");
   return `<div class="seat ${o===MY_SEAT?"me":""} ${isThinking?"thinking":""} ${!alive[o]?"eliminated":""}">
    <div class="seat-top">
@@ -684,7 +734,7 @@ window.jump=n=>{rebuild(n,true);draw();};
 
 const $=id=>document.getElementById(id),s=$("s"),turn_=$("turn"),lab=$("lab"),undo=$("undo"),redo=$("redo");
 const cellAt=(x,y)=>{const t=document.elementFromPoint(x,y);const c=t&&t.closest&&t.closest("[data-i]");return c?+c.dataset.i:null;};
-const over=()=>alive.reduce((x,y)=>x+y,0)<2||!!status||!!timeoutStatus||isDraw;
+const over=()=>alive.reduce((x,y)=>x+y,0)<2||!!status||!!timeoutStatus||isDraw||serverGameOver;
 
 s.addEventListener("contextmenu",e=>e.preventDefault());
 s.addEventListener("pointerdown",e=>{if(e.button==2||arrMode)rs=cellAt(e.clientX,e.clientY);});
@@ -704,6 +754,28 @@ $("mute").onclick=e=>{mute=!mute;e.target.textContent="Dźwięk: "+(mute?"wył."
 $("drawBtn").onclick=()=>socket.emit("offerDraw");
 $("endClose").onclick=()=>{$("endOv").style.display="none";};
 $("endReset").onclick=()=>{$("endOv").style.display="none";socket.emit("resetGame");};
+
+$("confirmStartBtn").onclick=()=>socket.emit("confirmStart");
+
+function syncRoomModeModal(){
+ $("roomModePick").querySelectorAll(".mode-card").forEach(el=>{
+  el.classList.toggle("sel",el.dataset.mode===activeMode);
+ });
+}
+$("switchModeBtn").onclick=()=>{
+ syncRoomModeModal();
+ $("modeSwitchOv").style.display="flex";
+};
+$("closeModeSwitch").onclick=()=>{$("modeSwitchOv").style.display="none";};
+$("roomModePick").addEventListener("click",e=>{
+ const card=e.target.closest(".mode-card");
+ if(!card||card.disabled||card.dataset.mode==="monopoly")return;
+ const nextMode=card.dataset.mode==="big"?"big":"classic";
+ $("modeSwitchOv").style.display="none";
+ if(nextMode!==activeMode && ROOM_CODE){
+  socket.emit("changeMode",nextMode);
+ }
+});
 
 $("promoOv").addEventListener("click",e=>{
  const b=e.target.closest(".promo-btn");if(!b||!pendingPromo)return;
@@ -825,6 +897,7 @@ function syncState(st,initial=false){
  cols=st.cols;
  drawOfferBy=st.drawOfferBy ?? null;
  isDraw=!!st.isDraw;
+ serverGameOver=!!st.gameOver;
  if(st.clock){
   const mins=st.clock.totalMinutes||st.totalMinutes||120;
   const perPlayer=st.clock.perPlayerMs||Math.floor((mins*60*1000)/3);
@@ -850,6 +923,7 @@ function syncState(st,initial=false){
   rebuild(pos, true);
  }
  if($("ov").style.display==="flex") openPick();
+ if($("modeSwitchOv").style.display==="flex") syncRoomModeModal();
  draw();
 }
 
