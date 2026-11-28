@@ -42,19 +42,30 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 
 @keyframes fxFade{
   0%{opacity:0}
-  12%{opacity:1}
-  70%{opacity:.95}
+  10%{opacity:1}
+  72%{opacity:.95}
   100%{opacity:0}
 }
-@keyframes fxBeamPulse{
-  0%{stroke-dashoffset:1200;opacity:0}
-  18%{stroke-dashoffset:0;opacity:1}
-  75%{opacity:.85}
-  100%{opacity:0}
+@keyframes fxLaserShoot{
+  0%{stroke-dashoffset:1400;opacity:0}
+  15%{stroke-dashoffset:0;opacity:1}
+  78%{stroke-dashoffset:0;opacity:.9}
+  100%{stroke-dashoffset:-1400;opacity:0}
+}
+@keyframes fxLaserCore{
+  0%{stroke-dashoffset:1400;opacity:0}
+  12%{stroke-dashoffset:0;opacity:1}
+  65%{opacity:1}
+  100%{stroke-dashoffset:0;opacity:0}
 }
 @keyframes fxBlastRing{
-  0%{transform:scale(.25);opacity:1}
-  100%{transform:scale(1.65);opacity:0}
+  0%{transform:scale(.2);opacity:1}
+  100%{transform:scale(1.75);opacity:0}
+}
+@keyframes fxNodePulse{
+  0%{transform:scale(.2);opacity:0}
+  25%{transform:scale(1.35);opacity:1}
+  100%{transform:scale(1.8);opacity:0}
 }
 @keyframes fxUpsetPop{
   0%{transform:translateY(8px) scale(.65);opacity:0}
@@ -63,8 +74,10 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
   100%{transform:translateY(-38px) scale(.92);opacity:0}
 }
 .fx-wrap{pointer-events:none;animation:fxFade 1.15s ease-out forwards}
-.fx-beam{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1200;animation:fxBeamPulse 1.15s cubic-bezier(.16,.84,.3,1) forwards}
+.fx-laser-glow{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1400;animation:fxLaserShoot 1.15s cubic-bezier(.14,.88,.28,1) forwards}
+.fx-laser-core{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1400;animation:fxLaserCore 1.15s cubic-bezier(.14,.88,.28,1) forwards}
 .fx-ring{transform-box:fill-box;transform-origin:center;animation:fxBlastRing .72s cubic-bezier(.16,.84,.3,1) forwards}
+.fx-node{transform-box:fill-box;transform-origin:center;animation:fxNodePulse .85s ease-out forwards}
 .fx-upset-txt{font:900 22px system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#000;stroke-width:5px;animation:fxUpsetPop 1.15s ease-out forwards}
 
 .ov{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9;padding:12px}
@@ -317,7 +330,7 @@ let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null, nu
 let pendingPromo = null, drawOfferBy = null, isDraw = false, serverGameOver = false, endShownForKey = "";
 let lobbyColor = 0, lobbyMode = "classic", lobbyMinutes = 120, lobbyMonoPlayers = 4, activeMode = "classic";
 let timeoutEliminated = [false, false, false], timeoutStatus = "";
-let captureFx = null, captureFxTimer = null;
+let captureFx = null, captureFxTimer = null, lastFxMoveCount = 0;
 
 let monoState = {
   playerCount: 4,
@@ -601,30 +614,60 @@ function emitMoveWithMeta(a,b,promo){
 function buildBackRow(count, sideIdx){
  const row=Array(count).fill("p");
  if(count<=0)return row;
- const leftR=0;
- const rightR=count-1;
- row[leftR]="r";
- row[rightR]="r";
+ if(activeMode==="big"){
+  row[0]="r";
+  row[count-1]="r";
+  if(count>=4){
+   row[1]="r";
+   row[count-2]="r";
+  }
+  const mid=Math.floor(count/2);
+  if(sideIdx===0){
+   row[mid-1]="q";
+   row[mid]="k";
+  }else{
+   row[mid-1]="k";
+   row[mid]="q";
+  }
+  const inner=["n","b","n","b"];
+  let ii=0;
+  for(let i=2;i<=count-3;i++){
+   if(row[i]==="p" && ii<inner.length){
+    row[i]=inner[ii++];
+   }
+  }
+  return row;
+ }
+
+ const base8 = sideIdx===0
+  ? ["r","n","b","q","k","b","n","r"]
+  : ["r","n","b","k","q","b","n","r"];
+ if(count===8){
+  return base8.slice();
+ }
+ const out=Array(count).fill("p");
+ out[0]="r";
+ out[count-1]="r";
  if(count>=4){
-  row[leftR+1]="r";
-  row[rightR-1]="r";
+  out[1]="r";
+  out[count-2]="r";
  }
  const mid=Math.floor(count/2);
  if(sideIdx===0){
-  row[mid-1]="q";
-  row[mid]="k";
+  out[mid-1]="q";
+  out[mid]="k";
  }else{
-  row[mid-1]="k";
-  row[mid]="q";
+  out[mid-1]="k";
+  out[mid]="q";
  }
  const extras=["n","b","n","b"];
  let ei=0;
  for(let i=0;i<count;i++){
-  if(row[i]==="p" && Math.abs(i-mid)<=3 && ei<extras.length){
-   row[i]=extras[ei++];
+  if(out[i]==="p" && Math.abs(i-mid)<=3 && ei<extras.length){
+   out[i]=extras[ei++];
   }
  }
- return row;
+ return out;
 }
 
 function setup(){
@@ -764,12 +807,21 @@ function advance(){status="";for(let g=0;g<4;g++){turn=(turn+1)%3;if(!alive[turn
 let ac,mute=false;
 function snd(f,d=.12,t="sine"){if(mute)return;try{ac=ac||new AudioContext();if(ac.state==="suspended")ac.resume();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.15,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(n+d);}catch(e){}}
 
+function clearCaptureFx(){
+ if(captureFxTimer){
+  clearTimeout(captureFxTimer);
+  captureFxTimer = null;
+ }
+ captureFx = null;
+}
+
 function triggerCaptureFx(a, b, attackerType, attackerOwner, victimType){
  const ptsPath = (arrowPath(a, b) || [a, b]).map(idx => geom.cells[idx]?.ctr).filter(Boolean);
  const targetCtr = geom.cells[b]?.ctr || [985, 655];
  const colorHex = PAL[cols[attackerOwner] ?? 0]?.[1] || "#f59e0b";
  const isUnderdog = attackerType === "p" && ["q", "r", "b", "n"].includes(victimType);
 
+ clearCaptureFx();
  captureFx = {
   id: Date.now() + Math.random(),
   a,
@@ -782,11 +834,11 @@ function triggerCaptureFx(a, b, attackerType, attackerOwner, victimType){
   isUnderdog
  };
 
- if(captureFxTimer) clearTimeout(captureFxTimer);
  captureFxTimer = setTimeout(()=>{
   captureFx = null;
+  captureFxTimer = null;
   draw();
- }, 1180);
+ }, 1160);
 }
 
 function apply(a,b,promo,quiet){
@@ -807,7 +859,7 @@ function apply(a,b,promo,quiet){
     snd(660,.08,"triangle");
     setTimeout(()=>snd(880,.14,"sawtooth"),70);
    }else if(pt==="b"){
-    snd(520,.14,"sawtooth");
+    snd(620,.14,"sawtooth");
    }else{
     snd(430,.12,"square");
    }
@@ -819,9 +871,12 @@ function apply(a,b,promo,quiet){
  return {text: note||(G[pt]+geom.cells[a].name+(cap?"×":"→")+geom.cells[b].name+promoTag), o: who};
 }
 
-function rebuild(n,quiet=true){
+function rebuild(n,quiet=true,triggerLatestFx=false){
  setup();notes=[];
- for(let k=0;k<n;k++){notes.push(apply(mv[k][0],mv[k][1],mv[k][2],quiet && k<n-1));}
+ for(let k=0;k<n;k++){
+  const isLatest = triggerLatestFx && (k === n - 1);
+  notes.push(apply(mv[k][0],mv[k][1],mv[k][2],quiet || !isLatest));
+ }
  if(n<mv.length){
   const snapB=B.map(x=>x?{...x}:null),snapTurn=turn,snapAlive=[...alive],snapLast=last,snapStatus=status;
   for(let k=n;k<mv.length;k++)notes.push(apply(mv[k][0],mv[k][1],mv[k][2],true));
@@ -833,6 +888,7 @@ function rebuild(n,quiet=true){
 
 function pick(i){
  if(activeMode==="monopoly"||pos!==mv.length||isDraw||timeoutStatus||serverGameOver) return;
+ const actor = MY_SEAT >= 0 ? MY_SEAT : turn;
  if(sel!=null&&hl.includes(i)){
   const p=B[sel];
   let isPromo=false;
@@ -851,7 +907,7 @@ function pick(i){
   emitMoveWithMeta(sel,i,null);
   sel=null;hl=[];arrows=[];marks.clear();
  }
- else if(turn===MY_SEAT && alive[MY_SEAT] && B[i] && B[i].o===MY_SEAT){sel=i;hl=legal(i);snd(700,.05);}
+ else if(turn===actor && alive[actor] && B[i] && B[i].o===actor){sel=i;hl=legal(i);snd(700,.05);}
  else{sel=null;hl=[];}
  draw();
 }
@@ -1006,22 +1062,29 @@ function renderCaptureEffectSvg(fx, rot){
 
  if(fx.attackerType === "b" && fx.ptsPath && fx.ptsPath.length >= 2){
   const ptsStr = fx.ptsPath.map(p => p.join(",")).join(" ");
-  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="${c}" stroke-width="26" stroke-opacity=".42"/>`;
-  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="${glow}" stroke-width="11" stroke-opacity=".95"/>`;
-  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="#ffffff" stroke-width="4" stroke-opacity=".9"/>`;
+  out += `<polyline class="fx-laser-glow" points="${ptsStr}" stroke="${c}" stroke-width="34" stroke-opacity=".35"/>`;
+  out += `<polyline class="fx-laser-glow" points="${ptsStr}" stroke="${glow}" stroke-width="15" stroke-opacity=".85"/>`;
+  out += `<polyline class="fx-laser-core" points="${ptsStr}" stroke="#ffffff" stroke-width="5.5" stroke-opacity="1"/>`;
+  fx.ptsPath.forEach((pt, idx)=>{
+   const r = idx === fx.ptsPath.length - 1 ? 16 : 8;
+   out += `<circle class="fx-node" cx="${pt[0]}" cy="${pt[1]}" r="${r}" fill="${idx === fx.ptsPath.length - 1 ? "#ffffff" : glow}" stroke="${c}" stroke-width="3"/>`;
+  });
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="44" fill="none" stroke="${glow}" stroke-width="7"/>`;
  }else if(fx.attackerType === "q" || fx.attackerType === "r"){
-  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="42" fill="none" stroke="${c}" stroke-width="10"/>`;
-  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="26" fill="${glow}" fill-opacity=".35"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="44" fill="none" stroke="${c}" stroke-width="10"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="28" fill="${glow}" fill-opacity=".35"/>`;
+  out += `<line x1="${tx-36}" y1="${ty}" x2="${tx+36}" y2="${ty}" stroke="${glow}" stroke-width="5" stroke-linecap="round"/>`;
+  out += `<line x1="${tx}" y1="${ty-36}" x2="${tx}" y2="${ty+36}" stroke="${glow}" stroke-width="5" stroke-linecap="round"/>`;
  }else if(fx.attackerType === "n" && fx.ptsPath && fx.ptsPath.length >= 2){
   const ptsStr = fx.ptsPath.map(p => p.join(",")).join(" ");
-  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="${c}" stroke-width="12" stroke-opacity=".75"/>`;
-  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="34" fill="none" stroke="${glow}" stroke-width="8"/>`;
+  out += `<polyline class="fx-laser-core" points="${ptsStr}" stroke="${glow}" stroke-width="9"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="36" fill="none" stroke="${c}" stroke-width="8"/>`;
  }else{
-  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="32" fill="none" stroke="${c}" stroke-width="8"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="34" fill="none" stroke="${c}" stroke-width="8"/>`;
  }
 
  if(fx.isUnderdog){
-  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="54" fill="none" stroke="#fde047" stroke-width="6"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="56" fill="none" stroke="#fde047" stroke-width="6"/>`;
   out += `<text class="fx-upset-txt" x="${tx}" y="${ty - 24}" transform="rotate(${-rot} ${tx} ${ty - 24})" fill="${glow}">UPSET!</text>`;
  }
 
@@ -1195,7 +1258,7 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
  }
 }
 
-window.jump=n=>{rebuild(n,true);draw();};
+window.jump=n=>{rebuild(n,true,false);draw();};
 
 const $=id=>document.getElementById(id),s=$("s"),turn_=$("turn"),lab=$("lab"),undo=$("undo"),redo=$("redo");
 const cellAt=(x,y)=>{const t=document.elementFromPoint(x,y);const c=t&&t.closest&&t.closest("[data-i]");return c?+c.dataset.i:null;};
@@ -1208,9 +1271,9 @@ s.addEventListener("pointerup",e=>{if(rs!=null){const z=cellAt(e.clientX,e.clien
  else if(arrowPath(rs,z)){const k=arrows.findIndex(a=>a[0]==rs&&a[1]==z);k>=0?arrows.splice(k,1):arrows.push([rs,z]);}draw();}rs=null;e.preventDefault();}});
 s.addEventListener("click",e=>{if(arrMode)return;const i=cellAt(e.clientX,e.clientY);if(i!=null&&!over())pick(i);});
 
-undo.onclick=()=>{if(pos>0){rebuild(pos-1,true);snd(400,.06);draw();}};
-redo.onclick=()=>{if(pos<mv.length){rebuild(pos+1,true);snd(520,.1);draw();}};
-$("live").onclick=()=>{rebuild(mv.length,true);draw();};
+undo.onclick=()=>{if(pos>0){rebuild(pos-1,true,false);snd(400,.06);draw();}};
+redo.onclick=()=>{if(pos<mv.length){rebuild(pos+1,true,false);snd(520,.1);draw();}};
+$("live").onclick=()=>{rebuild(mv.length,true,false);draw();};
 const clearDraw=()=>{arrows=[];marks.clear();draw();};
 $("clr").onclick=clearDraw;s.addEventListener("dblclick",clearDraw);
 $("arr").onclick=e=>{arrMode=!arrMode;e.target.classList.toggle("on",arrMode);e.target.textContent="Strzałki: "+(arrMode?"wł.":"wył.");};
@@ -1316,7 +1379,7 @@ $("modePick").addEventListener("click",e=>{
  syncLobbyModeUI();
  if(lobbyMode!=="monopoly"){
   setBoardMode(lobbyMode);
-  rebuild(0,true);
+  rebuild(0,true,false);
  }
  draw();
 });
@@ -1395,6 +1458,8 @@ function setBoardMode(mode){
   if(nextMode!=="monopoly"){
    geom=buildBoardGeometry(nextMode);
   }
+  clearCaptureFx();
+  lastFxMoveCount=0;
   arrows=[];marks.clear();sel=null;hl=[];
  }
 }
@@ -1497,11 +1562,19 @@ function syncState(st,initial=false){
  }
  const prevLen=mv.length;
  mv=st.mv||[];
+ if(initial || mv.length < prevLen){
+  clearCaptureFx();
+  lastFxMoveCount = mv.length;
+ }
  if(activeMode!=="monopoly"){
-  if(initial || pos===prevLen || mv.length<pos){
-   rebuild(mv.length, initial);
+  const hasNewMove = !initial && mv.length > prevLen && mv.length > lastFxMoveCount;
+  if(hasNewMove){
+   lastFxMoveCount = mv.length;
+   rebuild(mv.length, false, true);
+  } else if(initial || pos===prevLen || mv.length<pos){
+   rebuild(mv.length, true, false);
   } else {
-   rebuild(pos, true);
+   rebuild(pos, true, false);
   }
  }
  if($("ov").style.display==="flex") openPick();
@@ -1512,5 +1585,5 @@ function syncState(st,initial=false){
 socket.on("roomUpdate",st=>syncState(st,false));
 setInterval(renderClocks,250);
 
-rebuild(0,true);draw();
+rebuild(0,true,false);draw();
 </script></body></html>
