@@ -39,6 +39,34 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 @media(max-width:700px){#list{max-height:24vh}}
 .p{font:84px "Segoe UI Symbol","Noto Sans Symbols 2",serif;text-anchor:middle;dominant-baseline:central;pointer-events:none;stroke-width:3px;paint-order:stroke}
 .lb{font:22px system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+
+@keyframes fxFade{
+  0%{opacity:0}
+  12%{opacity:1}
+  70%{opacity:.95}
+  100%{opacity:0}
+}
+@keyframes fxBeamPulse{
+  0%{stroke-dashoffset:1200;opacity:0}
+  18%{stroke-dashoffset:0;opacity:1}
+  75%{opacity:.85}
+  100%{opacity:0}
+}
+@keyframes fxBlastRing{
+  0%{transform:scale(.25);opacity:1}
+  100%{transform:scale(1.65);opacity:0}
+}
+@keyframes fxUpsetPop{
+  0%{transform:translateY(8px) scale(.65);opacity:0}
+  25%{transform:translateY(-14px) scale(1.18);opacity:1}
+  80%{transform:translateY(-28px) scale(1);opacity:1}
+  100%{transform:translateY(-38px) scale(.92);opacity:0}
+}
+.fx-wrap{pointer-events:none;animation:fxFade 1.15s ease-out forwards}
+.fx-beam{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1200;animation:fxBeamPulse 1.15s cubic-bezier(.16,.84,.3,1) forwards}
+.fx-ring{transform-box:fill-box;transform-origin:center;animation:fxBlastRing .72s cubic-bezier(.16,.84,.3,1) forwards}
+.fx-upset-txt{font:900 22px system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#000;stroke-width:5px;animation:fxUpsetPop 1.15s ease-out forwards}
+
 .ov{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9;padding:12px}
 .box{background:var(--pn);border-radius:14px;padding:20px;max-width:480px;width:100%;box-shadow:0 10px 30px #0009}
 .box h2{margin:0 0 12px;font-size:19px}
@@ -289,6 +317,7 @@ let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null, nu
 let pendingPromo = null, drawOfferBy = null, isDraw = false, serverGameOver = false, endShownForKey = "";
 let lobbyColor = 0, lobbyMode = "classic", lobbyMinutes = 120, lobbyMonoPlayers = 4, activeMode = "classic";
 let timeoutEliminated = [false, false, false], timeoutStatus = "";
+let captureFx = null, captureFxTimer = null;
 
 let monoState = {
   playerCount: 4,
@@ -735,8 +764,33 @@ function advance(){status="";for(let g=0;g<4;g++){turn=(turn+1)%3;if(!alive[turn
 let ac,mute=false;
 function snd(f,d=.12,t="sine"){if(mute)return;try{ac=ac||new AudioContext();if(ac.state==="suspended")ac.resume();const o=ac.createOscillator(),g=ac.createGain(),n=ac.currentTime;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(.15,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(ac.destination);o.start();o.stop(n+d);}catch(e){}}
 
+function triggerCaptureFx(a, b, attackerType, attackerOwner, victimType){
+ const ptsPath = (arrowPath(a, b) || [a, b]).map(idx => geom.cells[idx]?.ctr).filter(Boolean);
+ const targetCtr = geom.cells[b]?.ctr || [985, 655];
+ const colorHex = PAL[cols[attackerOwner] ?? 0]?.[1] || "#f59e0b";
+ const isUnderdog = attackerType === "p" && ["q", "r", "b", "n"].includes(victimType);
+
+ captureFx = {
+  id: Date.now() + Math.random(),
+  a,
+  b,
+  ptsPath,
+  targetCtr,
+  colorHex,
+  attackerType,
+  victimType,
+  isUnderdog
+ };
+
+ if(captureFxTimer) clearTimeout(captureFxTimer);
+ captureFxTimer = setTimeout(()=>{
+  captureFx = null;
+  draw();
+ }, 1180);
+}
+
 function apply(a,b,promo,quiet){
- const p=B[a],t=B[b],cap=!!t,pt=p.t,who=p.o;let note=null;
+ const p=B[a],t=B[b],cap=!!t,pt=p.t,who=p.o,vicPt=t?t.t:null;let note=null;
  if(p.t=="p"){const f=go(a,p.h),f2=f&&go(f[0],(f[1]+2)%4);
   if(f&&f[0]==b)p.h=(f[1]+2)%4;
   else if(f2&&f2[0]==b)p.h=(f2[1]+2)%4;
@@ -746,7 +800,21 @@ function apply(a,b,promo,quiet){
  p.moved=1;B[b]=p;B[a]=null;last=[a,b];
  let promoTag="";
  if(p.t=="p"&&!go(b,p.h)){p.t=promo||"q";promoTag="="+G[p.t];}
- if(!quiet)snd(cap?430:520,.1);
+ if(!quiet){
+  if(cap){
+   triggerCaptureFx(a, b, pt, who, vicPt);
+   if(pt==="p" && ["q","r","b","n"].includes(vicPt)){
+    snd(660,.08,"triangle");
+    setTimeout(()=>snd(880,.14,"sawtooth"),70);
+   }else if(pt==="b"){
+    snd(520,.14,"sawtooth");
+   }else{
+    snd(430,.12,"square");
+   }
+  }else{
+   snd(520,.1);
+  }
+ }
  advance();
  return {text: note||(G[pt]+geom.cells[a].name+(cap?"×":"→")+geom.cells[b].name+promoTag), o: who};
 }
@@ -929,6 +997,38 @@ function animateMonopolyRoll(st, moverSeat){
  },diceSpinMs);
 }
 
+function renderCaptureEffectSvg(fx, rot){
+ if(!fx)return "";
+ const [tx, ty] = fx.targetCtr;
+ const c = fx.colorHex;
+ const glow = shade(c, .55);
+ let out = `<g class="fx-wrap">`;
+
+ if(fx.attackerType === "b" && fx.ptsPath && fx.ptsPath.length >= 2){
+  const ptsStr = fx.ptsPath.map(p => p.join(",")).join(" ");
+  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="${c}" stroke-width="26" stroke-opacity=".42"/>`;
+  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="${glow}" stroke-width="11" stroke-opacity=".95"/>`;
+  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="#ffffff" stroke-width="4" stroke-opacity=".9"/>`;
+ }else if(fx.attackerType === "q" || fx.attackerType === "r"){
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="42" fill="none" stroke="${c}" stroke-width="10"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="26" fill="${glow}" fill-opacity=".35"/>`;
+ }else if(fx.attackerType === "n" && fx.ptsPath && fx.ptsPath.length >= 2){
+  const ptsStr = fx.ptsPath.map(p => p.join(",")).join(" ");
+  out += `<polyline class="fx-beam" points="${ptsStr}" stroke="${c}" stroke-width="12" stroke-opacity=".75"/>`;
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="34" fill="none" stroke="${glow}" stroke-width="8"/>`;
+ }else{
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="32" fill="none" stroke="${c}" stroke-width="8"/>`;
+ }
+
+ if(fx.isUnderdog){
+  out += `<circle class="fx-ring" cx="${tx}" cy="${ty}" r="54" fill="none" stroke="#fde047" stroke-width="6"/>`;
+  out += `<text class="fx-upset-txt" x="${tx}" y="${ty - 24}" transform="rotate(${-rot} ${tx} ${ty - 24})" fill="${glow}">UPSET!</text>`;
+ }
+
+ out += `</g>`;
+ return out;
+}
+
 function draw(){
  const isMono = activeMode==="monopoly";
  $("chessClockWrap").style.display = isMono ? "none" : "flex";
@@ -975,6 +1075,7 @@ ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop 
   hl.forEach(i=>{const c=geom.cells[i];h+=B[i]?`<circle cx="${c.ctr[0]}" cy="${c.ctr[1]}" r="${(40*pcScale).toFixed(1)}" fill="none" stroke="#e5484d" stroke-width="8" pointer-events="none"/>`:`<circle cx="${c.ctr[0]}" cy="${c.ctr[1]}" r="${(15*pcScale).toFixed(1)}" fill="#000a" pointer-events="none"/>`;});
   arrows.forEach(([a,z])=>{const pt=arrowPath(a,z).map(i=>geom.cells[i].ctr.slice()),L=pt.length,u=nrm([pt[L-1][0]-pt[L-2][0],pt[L-1][1]-pt[L-2][1]]);pt[L-1][0]-=u[0]*14;pt[L-1][1]-=u[1]*14;
    h+=`<polyline points="${pt.map(p=>p.join(",")).join(" ")}" fill="none" stroke="#f59e0b" stroke-opacity=".85" stroke-width="14" stroke-linejoin="round" marker-end="url(#ah)" pointer-events="none"/>`;});
+  h+=renderCaptureEffectSvg(captureFx, rot);
   h+=`</g>`;
   s.innerHTML=h;
  }
