@@ -11,6 +11,18 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = new Map();
 const PAL_COUNT = 15;
+const VALID_MODES = new Set(["classic", "big"]);
+const ALLOWED_TOTAL_MINUTES = new Set([30, 60, 120, 180]);
+const DEFAULT_TOTAL_MINUTES = 120;
+
+function normalizeMode(mode) {
+  return VALID_MODES.has(mode) ? mode : "classic";
+}
+
+function normalizeTotalMinutes(mins) {
+  const n = Number(mins);
+  return ALLOWED_TOTAL_MINUTES.has(n) ? n : DEFAULT_TOTAL_MINUTES;
+}
 
 function genCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -19,11 +31,15 @@ function genCode() {
   return rooms.has(code) ? genCode() : code;
 }
 
-function createClockState(now = Date.now()) {
+function createClockState(now = Date.now(), totalMinutes = DEFAULT_TOTAL_MINUTES) {
+  const mins = normalizeTotalMinutes(totalMinutes);
+  const perPlayerMs = Math.floor((mins * 60 * 1000) / 3);
   return {
     gameStartAt: now,
     gameElapsedMs: 0,
-    thinkMs: [0, 0, 0],
+    totalMinutes: mins,
+    perPlayerMs,
+    remainingMs: [perPlayerMs, perPlayerMs, perPlayerMs],
     activeTurn: 0,
     lastTickAt: now,
     running: true
@@ -32,9 +48,13 @@ function createClockState(now = Date.now()) {
 
 function syncClocks(room, now = Date.now(), isGameOver = false) {
   if (!room.clock) {
-    room.clock = createClockState(now);
+    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES);
   }
   const clk = room.clock;
+  if (!Array.isArray(clk.remainingMs)) {
+    const base = clk.perPlayerMs || Math.floor((DEFAULT_TOTAL_MINUTES * 60 * 1000) / 3);
+    clk.remainingMs = [base, base, base];
+  }
   if (clk.running && typeof clk.lastTickAt === "number") {
     const delta = Math.max(0, now - clk.lastTickAt);
     clk.gameElapsedMs += delta;
@@ -43,7 +63,7 @@ function syncClocks(room, now = Date.now(), isGameOver = false) {
       clk.activeTurn >= 0 &&
       clk.activeTurn <= 2
     ) {
-      clk.thinkMs[clk.activeTurn] = (clk.thinkMs[clk.activeTurn] || 0) + delta;
+      clk.remainingMs[clk.activeTurn] = Math.max(0, (clk.remainingMs[clk.activeTurn] || 0) - delta);
     }
   }
   clk.lastTickAt = now;
@@ -54,20 +74,25 @@ function syncClocks(room, now = Date.now(), isGameOver = false) {
 
 function getClockSnapshot(room, now = Date.now()) {
   if (!room.clock) {
-    room.clock = createClockState(now);
+    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES);
   }
   const clk = room.clock;
+  const base = clk.perPlayerMs || Math.floor((DEFAULT_TOTAL_MINUTES * 60 * 1000) / 3);
+  const remBase = Array.isArray(clk.remainingMs) ? clk.remainingMs : [base, base, base];
   const extra = clk.running && typeof clk.lastTickAt === "number"
     ? Math.max(0, now - clk.lastTickAt)
     : 0;
-  const thinkMs = [
-    (clk.thinkMs[0] || 0) + (clk.activeTurn === 0 ? extra : 0),
-    (clk.thinkMs[1] || 0) + (clk.activeTurn === 1 ? extra : 0),
-    (clk.thinkMs[2] || 0) + (clk.activeTurn === 2 ? extra : 0)
-  ];
+
+  const remainingMs = [0, 1, 2].map(idx => {
+    const cur = remBase[idx] ?? base;
+    return clk.activeTurn === idx && clk.running ? Math.max(0, cur - extra) : Math.max(0, cur);
+  });
+
   return {
     gameElapsedMs: (clk.gameElapsedMs || 0) + extra,
-    thinkMs,
+    totalMinutes: clk.totalMinutes || DEFAULT_TOTAL_MINUTES,
+    perPlayerMs: base,
+    remainingMs,
     activeTurn: clk.activeTurn,
     running: !!clk.running,
     syncedAt: now
@@ -77,6 +102,8 @@ function getClockSnapshot(room, now = Date.now()) {
 function getRoomState(room, now = Date.now()) {
   return {
     code: room.code,
+    mode: normalizeMode(room.mode),
+    totalMinutes: normalizeTotalMinutes(room.totalMinutes),
     hostId: room.hostId,
     seats: room.seats.map(s => (s ? { id: s.id, name: s.name } : null)),
     cols: room.cols,
@@ -90,7 +117,7 @@ function getRoomState(room, now = Date.now()) {
 io.on("connection", socket => {
   let currentRoom = null;
 
-  socket.on("joinRoom", ({ roomCode, name, preferredSeat, preferredColor }, cb) => {
+  socket.on("joinRoom", ({ roomCode, name, preferredSeat, preferredColor, gameMode, totalMinutes }, cb) => {
     const cleanName = (name || "Gracz").trim().slice(0, 18) || "Gracz";
     socket.data.name = cleanName;
     let code = (roomCode || "").trim().toUpperCase();
@@ -99,15 +126,18 @@ io.on("connection", socket => {
 
     if (!code) {
       code = genCode();
+      const mins = normalizeTotalMinutes(totalMinutes);
       room = {
         code,
+        mode: normalizeMode(gameMode),
+        totalMinutes: mins,
         hostId: socket.id,
         seats: [null, null, null],
         cols: [0, 1, 2],
         mv: [],
         drawOfferBy: null,
         isDraw: false,
-        clock: createClockState(now)
+        clock: createClockState(now, mins)
       };
       rooms.set(code, room);
     } else {
@@ -230,7 +260,7 @@ io.on("connection", socket => {
     currentRoom.mv = [];
     currentRoom.drawOfferBy = null;
     currentRoom.isDraw = false;
-    currentRoom.clock = createClockState(now);
+    currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
