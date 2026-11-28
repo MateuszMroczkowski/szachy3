@@ -38,7 +38,7 @@ const MONO_DEFS = [
   { name: "Pomarańcz. III", type: "street", price: 200, rent: 32, group: "orange" },
   { name: "PARKING", type: "corner", price: 0, rent: 0, group: null },
   { name: "Czerwona I", type: "street", price: 220, rent: 36, group: "red" },
-  { name: "Szansa", type:"chance", price: 0, rent: 0, group: null },
+  { name: "Szansa", type: "chance", price: 0, rent: 0, group: null },
   { name: "Czerwona II", type: "street", price: 220, rent: 36, group: "red" },
   { name: "Czerwona III", type: "street", price: 240, rent: 40, group: "red" },
   { name: "Kolej Pd.", type: "rail", price: 200, rent: 25, group: "rail" },
