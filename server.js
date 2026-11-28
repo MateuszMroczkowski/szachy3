@@ -15,6 +15,62 @@ const VALID_MODES = new Set(["classic", "big", "monopoly"]);
 const ALLOWED_TOTAL_MINUTES = new Set([30, 60, 120, 180]);
 const DEFAULT_TOTAL_MINUTES = 120;
 
+const MONO_DEFS = [
+  { name: "START", type: "corner", price: 0, rent: 0, group: null },
+  { name: "Brązowa I", type: "street", price: 60, rent: 6, group: "brown" },
+  { name: "Kasa Społ.", type: "chest", price: 0, rent: 0, group: null },
+  { name: "Brązowa II", type: "street", price: 60, rent: 10, group: "brown" },
+  { name: "Podatek", type: "tax", price: 0, rent: 200, group: null },
+  { name: "Kolej Pn.", type: "rail", price: 200, rent: 25, group: "rail" },
+  { name: "Jasnonieb. I", type: "street", price: 100, rent: 12, group: "lblue" },
+  { name: "Szansa", type: "chance", price: 0, rent: 0, group: null },
+  { name: "Jasnonieb. II", type: "street", price: 100, rent: 12, group: "lblue" },
+  { name: "Jasnonieb. III", type: "street", price: 120, rent: 16, group: "lblue" },
+  { name: "WIĘZIENIE", type: "corner", price: 0, rent: 0, group: null },
+  { name: "Różowa I", type: "street", price: 140, rent: 20, group: "pink" },
+  { name: "Elektrownia", type: "util", price: 150, rent: 0, group: "util" },
+  { name: "Różowa II", type: "street", price: 140, rent: 20, group: "pink" },
+  { name: "Różowa III", type: "street", price: 160, rent: 24, group: "pink" },
+  { name: "Kolej Wsch.", type: "rail", price: 200, rent: 25, group: "rail" },
+  { name: "Pomarańcz. I", type: "street", price: 180, rent: 28, group: "orange" },
+  { name: "Kasa Społ.", type: "chest", price: 0, rent: 0, group: null },
+  { name: "Pomarańcz. II", type: "street", price: 180, rent: 28, group: "orange" },
+  { name: "Pomarańcz. III", type: "street", price: 200, rent: 32, group: "orange" },
+  { name: "PARKING", type: "corner", price: 0, rent: 0, group: null },
+  { name: "Czerwona I", type: "street", price: 220, rent: 36, group: "red" },
+  { name: "Szansa", type: "chance", price: 0, rent: 0, group: null },
+  { name: "Czerwona II", type: "street", price: 220, rent: 36, group: "red" },
+  { name: "Czerwona III", type: "street", price: 240, rent: 40, group: "red" },
+  { name: "Kolej Pd.", type: "rail", price: 200, rent: 25, group: "rail" },
+  { name: "Żółta I", type: "street", price: 260, rent: 44, group: "yellow" },
+  { name: "Żółta II", type: "street", price: 260, rent: 44, group: "yellow" },
+  { name: "Wodociągi", type: "util", price: 150, rent: 0, group: "util" },
+  { name: "Żółta III", type: "street", price: 280, rent: 48, group: "yellow" },
+  { name: "DO WIĘZIENIA", type: "corner", price: 0, rent: 0, group: null },
+  { name: "Zielona I", type: "street", price: 300, rent: 52, group: "green" },
+  { name: "Zielona II", type: "street", price: 300, rent: 52, group: "green" },
+  { name: "Kasa Społ.", type: "chest", price: 0, rent: 0, group: null },
+  { name: "Zielona III", type: "street", price: 320, rent: 56, group: "green" },
+  { name: "Kolej Zach.", type: "rail", price: 200, rent: 25, group: "rail" },
+  { name: "Szansa", type: "chance", price: 0, rent: 0, group: null },
+  { name: "Granatowa I", type: "street", price: 350, rent: 70, group: "dblue" },
+  { name: "Podatek bog.", type: "tax", price: 0, rent: 100, group: null },
+  { name: "Granatowa II", type: "street", price: 400, rent: 100, group: "dblue" }
+];
+
+const GROUP_TILES = {
+  brown: [1, 3],
+  lblue: [6, 8, 9],
+  pink: [11, 13, 14],
+  orange: [16, 18, 19],
+  red: [21, 23, 24],
+  yellow: [26, 27, 29],
+  green: [31, 32, 34],
+  dblue: [37, 39],
+  rail: [5, 15, 25, 35],
+  util: [12, 28]
+};
+
 function normalizeMode(mode) {
   return VALID_MODES.has(mode) ? mode : "classic";
 }
@@ -51,11 +107,16 @@ function createMonopolyState(playerCount = 4) {
   return {
     playerCount: cnt,
     positions: [0, 0, 0, 0],
+    money: [1500, 1500, 1500, 1500],
+    jailed: [false, false, false, false],
+    bankrupt: [false, false, false, false],
+    owners: Array(40).fill(null),
     turn: 0,
+    hasRolled: false,
+    canBuyTile: null,
     dice: [1, 1],
     rollSeq: 0,
-    lastRollAt: 0,
-    soloActiveSeat: 0
+    lastEvent: "Gra rozpoczęta — kolej Pionka 1."
   };
 }
 
@@ -145,6 +206,7 @@ function getRoomState(room, now = Date.now()) {
   if (!room.monopoly) {
     room.monopoly = createMonopolyState(4);
   }
+  const m = room.monopoly;
   return {
     code: room.code,
     mode,
@@ -154,19 +216,84 @@ function getRoomState(room, now = Date.now()) {
     cols: room.cols,
     mv: room.mv,
     monopoly: {
-      playerCount: room.monopoly.playerCount,
-      positions: [...room.monopoly.positions],
-      turn: room.monopoly.turn,
-      dice: [...room.monopoly.dice],
-      rollSeq: room.monopoly.rollSeq || 0,
-      lastRollAt: room.monopoly.lastRollAt || 0,
-      soloActiveSeat: room.monopoly.soloActiveSeat || 0
+      playerCount: m.playerCount,
+      positions: [...m.positions],
+      money: [...m.money],
+      jailed: [...m.jailed],
+      bankrupt: [...m.bankrupt],
+      owners: [...m.owners],
+      turn: m.turn,
+      hasRolled: !!m.hasRolled,
+      canBuyTile: m.canBuyTile,
+      dice: [...m.dice],
+      rollSeq: m.rollSeq || 0,
+      lastEvent: m.lastEvent || ""
     },
     drawOfferBy: room.drawOfferBy,
     isDraw: room.isDraw,
     gameOver: !!room.gameOver,
     clock: getClockSnapshot(room, now)
   };
+}
+
+function nextActiveMonopolyTurn(mono, fromSeat) {
+  const cnt = mono.playerCount;
+  for (let step = 1; step <= cnt; step++) {
+    const cand = (fromSeat + step) % cnt;
+    if (!mono.bankrupt[cand]) return cand;
+  }
+  return fromSeat;
+}
+
+function countActiveMonopolyPlayers(mono) {
+  let c = 0;
+  for (let i = 0; i < mono.playerCount; i++) {
+    if (!mono.bankrupt[i]) c++;
+  }
+  return c;
+}
+
+function computeRent(mono, tileIdx, diceSum, playerIdx) {
+  const tile = MONO_DEFS[tileIdx];
+  const owner = mono.owners[tileIdx];
+  if (owner == null || owner === playerIdx || mono.bankrupt[owner]) return 0;
+  if (tile.type === "rail") {
+    const ownedRails = GROUP_TILES.rail.filter(i => mono.owners[i] === owner).length;
+    return 25 * Math.pow(2, Math.max(0, ownedRails - 1));
+  }
+  if (tile.type === "util") {
+    const ownedUtils = GROUP_TILES.util.filter(i => mono.owners[i] === owner).length;
+    return diceSum * (ownedUtils >= 2 ? 10 : 4);
+  }
+  if (tile.type === "street" && tile.group && GROUP_TILES[tile.group]) {
+    const grp = GROUP_TILES[tile.group];
+    const fullSet = grp.every(i => mono.owners[i] === owner);
+    return fullSet ? tile.rent * 2 : tile.rent;
+  }
+  return tile.rent || 0;
+}
+
+function applyCharge(mono, playerIdx, amount, creditorIdx = null) {
+  const due = Math.max(0, Math.floor(amount));
+  if (due <= 0) return;
+  const curMoney = mono.money[playerIdx] || 0;
+  if (curMoney >= due) {
+    mono.money[playerIdx] = curMoney - due;
+    if (creditorIdx != null && creditorIdx !== playerIdx && !mono.bankrupt[creditorIdx]) {
+      mono.money[creditorIdx] = (mono.money[creditorIdx] || 0) + due;
+    }
+  } else {
+    if (creditorIdx != null && creditorIdx !== playerIdx && !mono.bankrupt[creditorIdx]) {
+      mono.money[creditorIdx] = (mono.money[creditorIdx] || 0) + curMoney;
+    }
+    mono.money[playerIdx] = 0;
+    mono.bankrupt[playerIdx] = true;
+    for (let i = 0; i < mono.owners.length; i++) {
+      if (mono.owners[i] === playerIdx) {
+        mono.owners[i] = creditorIdx != null && !mono.bankrupt[creditorIdx] ? creditorIdx : null;
+      }
+    }
+  }
 }
 
 function makeInitialSeats() {
@@ -266,9 +393,6 @@ io.on("connection", socket => {
     const oldName = old !== -1 ? currentRoom.seats[old]?.name : null;
     if (old !== -1) currentRoom.seats[old] = null;
     currentRoom.seats[seatIdx] = { id: socket.id, name: socket.data.name || oldName || "Gracz" };
-    if (normalizeMode(currentRoom.mode) === "monopoly") {
-      currentRoom.monopoly.soloActiveSeat = seatIdx;
-    }
     maybeAutoStartClock(currentRoom, now);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
@@ -344,40 +468,158 @@ io.on("connection", socket => {
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
-  socket.on("monopolyRoll", targetSeatOverride => {
+  socket.on("monopolyRoll", () => {
     if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
     const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
     if (seat === -1) return;
     if (!currentRoom.monopoly) currentRoom.monopoly = createMonopolyState(4);
     const mono = currentRoom.monopoly;
-    const occupiedCount = currentRoom.seats.slice(0, mono.playerCount).filter(Boolean).length;
-    const activePlayer = occupiedCount <= 1 && typeof targetSeatOverride === "number" && targetSeatOverride >= 0 && targetSeatOverride < mono.playerCount
-      ? targetSeatOverride
-      : mono.turn;
+    if (countActiveMonopolyPlayers(mono) <= 1) return;
+    if (mono.bankrupt[mono.turn]) {
+      mono.turn = nextActiveMonopolyTurn(mono, mono.turn);
+    }
+    if (mono.hasRolled || mono.canBuyTile != null) return;
 
+    const activePlayer = mono.turn;
     const d1 = Math.floor(Math.random() * 6) + 1;
     const d2 = Math.floor(Math.random() * 6) + 1;
-    const steps = d1 + d2;
-    const prevPos = mono.positions[activePlayer] || 0;
-    const nextPos = (prevPos + steps) % 40;
+    const sum = d1 + d2;
+    const isDouble = d1 === d2;
 
     mono.dice = [d1, d2];
-    mono.positions[activePlayer] = nextPos;
-    mono.soloActiveSeat = activePlayer;
-    mono.turn = (activePlayer + 1) % mono.playerCount;
     mono.rollSeq = (mono.rollSeq || 0) + 1;
-    mono.lastRollAt = Date.now();
+    mono.canBuyTile = null;
 
+    if (mono.jailed[activePlayer]) {
+      if (isDouble) {
+        mono.jailed[activePlayer] = false;
+        const startP = mono.positions[activePlayer] || 0;
+        const nextP = (startP + sum) % 40;
+        if (startP + sum >= 40) mono.money[activePlayer] = (mono.money[activePlayer] || 0) + 200;
+        mono.positions[activePlayer] = nextP;
+        const tile = MONO_DEFS[nextP];
+        if (tile.type === "tax") {
+          applyCharge(mono, activePlayer, tile.rent, null);
+          mono.lastEvent = `Pionek ${activePlayer + 1} wyszedł dubletem (${d1}+${d2}) → ${tile.name} (-$${tile.rent}).`;
+        } else if (["street", "rail", "util"].includes(tile.type)) {
+          if (mono.owners[nextP] == null) {
+            mono.canBuyTile = nextP;
+            mono.lastEvent = `Pionek ${activePlayer + 1} wyszedł dubletem (${d1}+${d2}) na wolne pole ${tile.name} ($${tile.price}).`;
+          } else {
+            const rent = computeRent(mono, nextP, sum, activePlayer);
+            applyCharge(mono, activePlayer, rent, mono.owners[nextP]);
+            mono.lastEvent = `Pionek ${activePlayer + 1} zapłacił $${rent} czynszu na ${tile.name}.`;
+          }
+        } else {
+          mono.lastEvent = `Pionek ${activePlayer + 1} wyszedł dubletem (${d1}+${d2}) → ${tile.name}.`;
+        }
+        mono.hasRolled = true;
+      } else {
+        mono.lastEvent = `Pionek ${activePlayer + 1} w więzieniu: rzut ${d1}+${d2} (brak dubletu).`;
+        mono.hasRolled = true;
+      }
+      io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
+      return;
+    }
+
+    const startP = mono.positions[activePlayer] || 0;
+    const rawDest = startP + sum;
+    const passedStart = rawDest >= 40;
+    const dest = rawDest % 40;
+    if (passedStart) {
+      mono.money[activePlayer] = (mono.money[activePlayer] || 0) + 200;
+    }
+    mono.positions[activePlayer] = dest;
+
+    const tile = MONO_DEFS[dest];
+    let msg = `Pionek ${activePlayer + 1} wyrzucił ${d1}+${d2} (${sum}) → ${tile.name}${passedStart ? " (+$200 START)" : ""}.`;
+
+    if (dest === 30) {
+      mono.positions[activePlayer] = 10;
+      mono.jailed[activePlayer] = true;
+      msg = `Pionek ${activePlayer + 1} wyrzucił ${d1}+${d2} → Idzie do więzienia!`;
+    } else if (tile.type === "tax") {
+      applyCharge(mono, activePlayer, tile.rent, null);
+      msg += ` Podatek -$${tile.rent}.`;
+    } else if (["street", "rail", "util"].includes(tile.type)) {
+      if (mono.owners[dest] == null) {
+        mono.canBuyTile = dest;
+        msg += ` Dostępne do kupienia za $${tile.price}.`;
+      } else {
+        const rent = computeRent(mono, dest, sum, activePlayer);
+        applyCharge(mono, activePlayer, rent, mono.owners[dest]);
+        msg += ` Czynsz dla Pionka ${mono.owners[dest] + 1}: $${rent}.`;
+      }
+    }
+
+    if (mono.bankrupt[activePlayer]) {
+      msg += ` Pionek ${activePlayer + 1} zbankrutował!`;
+      mono.canBuyTile = null;
+      mono.hasRolled = true;
+    } else if (isDouble && !mono.jailed[activePlayer] && mono.canBuyTile == null) {
+      mono.hasRolled = false;
+      msg += " Dublet — dodatkowy rzut!";
+    } else {
+      mono.hasRolled = true;
+    }
+
+    mono.lastEvent = msg;
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
   });
 
-  socket.on("monopolySelectSoloSeat", seatIdx => {
+  socket.on("monopolyBuy", () => {
     if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
-    if (!currentRoom.monopoly) currentRoom.monopoly = createMonopolyState(4);
+    const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
+    if (seat === -1 || !currentRoom.monopoly) return;
     const mono = currentRoom.monopoly;
-    if (typeof seatIdx !== "number" || seatIdx < 0 || seatIdx >= mono.playerCount) return;
-    mono.soloActiveSeat = seatIdx;
-    mono.turn = seatIdx;
+    const idx = mono.canBuyTile;
+    if (idx == null || mono.owners[idx] != null) return;
+    const tile = MONO_DEFS[idx];
+    const pIdx = mono.turn;
+    if ((mono.money[pIdx] || 0) < tile.price) return;
+    mono.money[pIdx] -= tile.price;
+    mono.owners[idx] = pIdx;
+    mono.canBuyTile = null;
+    mono.lastEvent = `Pionek ${pIdx + 1} kupił ${tile.name} za $${tile.price}.`;
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
+  });
+
+  socket.on("monopolySkipBuy", () => {
+    if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
+    const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
+    if (seat === -1 || !currentRoom.monopoly) return;
+    const mono = currentRoom.monopoly;
+    if (mono.canBuyTile == null) return;
+    const tile = MONO_DEFS[mono.canBuyTile];
+    mono.canBuyTile = null;
+    mono.lastEvent = `Pionek ${mono.turn + 1} nie kupił ${tile.name}.`;
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
+  });
+
+  socket.on("monopolyPayBail", () => {
+    if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
+    const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
+    if (seat === -1 || !currentRoom.monopoly) return;
+    const mono = currentRoom.monopoly;
+    const pIdx = mono.turn;
+    if (!mono.jailed[pIdx] || mono.hasRolled) return;
+    if ((mono.money[pIdx] || 0) < 50) return;
+    mono.money[pIdx] -= 50;
+    mono.jailed[pIdx] = false;
+    mono.lastEvent = `Pionek ${pIdx + 1} zapłacił $50 kaucji i wyszedł z więzienia.`;
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
+  });
+
+  socket.on("monopolyEndTurn", () => {
+    if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
+    const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
+    if (seat === -1 || !currentRoom.monopoly) return;
+    const mono = currentRoom.monopoly;
+    if (!mono.hasRolled && !mono.bankrupt[mono.turn]) return;
+    mono.canBuyTile = null;
+    mono.hasRolled = false;
+    mono.turn = nextActiveMonopolyTurn(mono, mono.turn);
+    mono.lastEvent = `Tura Pionka ${mono.turn + 1}.`;
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
   });
 
