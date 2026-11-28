@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = new Map();
 const PAL_COUNT = 15;
-const VALID_MODES = new Set(["classic", "big"]);
+const VALID_MODES = new Set(["classic", "big", "monopoly"]);
 const ALLOWED_TOTAL_MINUTES = new Set([30, 60, 120, 180]);
 const DEFAULT_TOTAL_MINUTES = 120;
 
@@ -46,11 +46,37 @@ function createClockState(now = Date.now(), totalMinutes = DEFAULT_TOTAL_MINUTES
   };
 }
 
+function createMonopolyState(playerCount = 4) {
+  const cnt = Math.max(2, Math.min(4, Number(playerCount) || 4));
+  return {
+    playerCount: cnt,
+    positions: [0, 0, 0, 0],
+    turn: 0,
+    dice: [1, 1],
+    rollSeq: 0,
+    lastRollAt: 0,
+    soloActiveSeat: 0
+  };
+}
+
+function seatCountForMode(mode, room) {
+  if (mode === "monopoly") {
+    return room.monopoly?.playerCount || 4;
+  }
+  return 3;
+}
+
 function hasFullLobby(room) {
-  return Array.isArray(room.seats) && room.seats.filter(Boolean).length >= 3;
+  const maxSeats = seatCountForMode(normalizeMode(room.mode), room);
+  const activeSeats = room.seats.slice(0, maxSeats).filter(Boolean).length;
+  return activeSeats >= maxSeats;
 }
 
 function maybeAutoStartClock(room, now = Date.now()) {
+  if (normalizeMode(room.mode) === "monopoly") {
+    if (room.clock) room.clock.running = false;
+    return;
+  }
   if (!room.clock) {
     room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES, false);
   }
@@ -69,7 +95,7 @@ function syncClocks(room, now = Date.now(), isGameOver = false) {
     const base = clk.perPlayerMs || Math.floor((DEFAULT_TOTAL_MINUTES * 60 * 1000) / 3);
     clk.remainingMs = [base, base, base];
   }
-  if (clk.running && typeof clk.lastTickAt === "number") {
+  if (clk.running && typeof clk.lastTickAt === "number" && normalizeMode(room.mode) !== "monopoly") {
     const delta = Math.max(0, now - clk.lastTickAt);
     clk.gameElapsedMs += delta;
     if (
@@ -94,7 +120,7 @@ function getClockSnapshot(room, now = Date.now()) {
   const clk = room.clock;
   const base = clk.perPlayerMs || Math.floor((DEFAULT_TOTAL_MINUTES * 60 * 1000) / 3);
   const remBase = Array.isArray(clk.remainingMs) ? clk.remainingMs : [base, base, base];
-  const extra = clk.running && typeof clk.lastTickAt === "number"
+  const extra = clk.running && typeof clk.lastTickAt === "number" && normalizeMode(room.mode) !== "monopoly"
     ? Math.max(0, now - clk.lastTickAt)
     : 0;
 
@@ -109,20 +135,33 @@ function getClockSnapshot(room, now = Date.now()) {
     perPlayerMs: base,
     remainingMs,
     activeTurn: clk.activeTurn,
-    running: !!clk.running,
+    running: !!(clk.running && normalizeMode(room.mode) !== "monopoly"),
     syncedAt: now
   };
 }
 
 function getRoomState(room, now = Date.now()) {
+  const mode = normalizeMode(room.mode);
+  if (!room.monopoly) {
+    room.monopoly = createMonopolyState(4);
+  }
   return {
     code: room.code,
-    mode: normalizeMode(room.mode),
+    mode,
     totalMinutes: normalizeTotalMinutes(room.totalMinutes),
     hostId: room.hostId,
     seats: room.seats.map(s => (s ? { id: s.id, name: s.name } : null)),
     cols: room.cols,
     mv: room.mv,
+    monopoly: {
+      playerCount: room.monopoly.playerCount,
+      positions: [...room.monopoly.positions],
+      turn: room.monopoly.turn,
+      dice: [...room.monopoly.dice],
+      rollSeq: room.monopoly.rollSeq || 0,
+      lastRollAt: room.monopoly.lastRollAt || 0,
+      soloActiveSeat: room.monopoly.soloActiveSeat || 0
+    },
     drawOfferBy: room.drawOfferBy,
     isDraw: room.isDraw,
     gameOver: !!room.gameOver,
@@ -130,10 +169,18 @@ function getRoomState(room, now = Date.now()) {
   };
 }
 
+function makeInitialSeats() {
+  return [null, null, null, null];
+}
+
+function makeInitialCols() {
+  return [0, 1, 2, 4];
+}
+
 io.on("connection", socket => {
   let currentRoom = null;
 
-  socket.on("joinRoom", ({ roomCode, name, preferredSeat, preferredColor, gameMode, totalMinutes }, cb) => {
+  socket.on("joinRoom", ({ roomCode, name, preferredSeat, preferredColor, gameMode, totalMinutes, monopolyPlayers }, cb) => {
     const cleanName = (name || "Gracz").trim().slice(0, 18) || "Gracz";
     socket.data.name = cleanName;
     let code = (roomCode || "").trim().toUpperCase();
@@ -143,14 +190,16 @@ io.on("connection", socket => {
     if (!code) {
       code = genCode();
       const mins = normalizeTotalMinutes(totalMinutes);
+      const mode = normalizeMode(gameMode);
       room = {
         code,
-        mode: normalizeMode(gameMode),
+        mode,
         totalMinutes: mins,
         hostId: socket.id,
-        seats: [null, null, null],
-        cols: [0, 1, 2],
+        seats: makeInitialSeats(),
+        cols: makeInitialCols(),
         mv: [],
+        monopoly: createMonopolyState(monopolyPlayers || 4),
         drawOfferBy: null,
         isDraw: false,
         gameOver: false,
@@ -160,17 +209,32 @@ io.on("connection", socket => {
     } else {
       room = rooms.get(code);
       if (!room) return cb({ error: "Nie znaleziono pokoju o takim kodzie." });
+      if (!Array.isArray(room.seats) || room.seats.length < 4) {
+        room.seats = [...room.seats, null].slice(0, 4);
+      }
+      if (!Array.isArray(room.cols) || room.cols.length < 4) {
+        room.cols = [room.cols[0] ?? 0, room.cols[1] ?? 1, room.cols[2] ?? 2, 4];
+      }
+      if (!room.monopoly) {
+        room.monopoly = createMonopolyState(monopolyPlayers || 4);
+      }
       syncClocks(room, now, !!(room.isDraw || room.gameOver));
     }
 
     currentRoom = room;
     socket.join(code);
 
+    const maxSeats = seatCountForMode(normalizeMode(room.mode), room);
     let seat = -1;
-    if (preferredSeat >= 0 && preferredSeat <= 2 && !room.seats[preferredSeat]) {
+    if (preferredSeat >= 0 && preferredSeat < maxSeats && !room.seats[preferredSeat]) {
       seat = preferredSeat;
     } else {
-      seat = room.seats.findIndex(s => s === null);
+      for (let i = 0; i < maxSeats; i++) {
+        if (!room.seats[i]) {
+          seat = i;
+          break;
+        }
+      }
     }
 
     if (seat !== -1) {
@@ -192,7 +256,9 @@ io.on("connection", socket => {
   });
 
   socket.on("takeSeat", seatIdx => {
-    if (!currentRoom || seatIdx < 0 || seatIdx > 2) return;
+    if (!currentRoom) return;
+    const maxSeats = seatCountForMode(normalizeMode(currentRoom.mode), currentRoom);
+    if (typeof seatIdx !== "number" || seatIdx < 0 || seatIdx >= maxSeats) return;
     if (currentRoom.seats[seatIdx]) return;
     const now = Date.now();
     syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
@@ -200,6 +266,9 @@ io.on("connection", socket => {
     const oldName = old !== -1 ? currentRoom.seats[old]?.name : null;
     if (old !== -1) currentRoom.seats[old] = null;
     currentRoom.seats[seatIdx] = { id: socket.id, name: socket.data.name || oldName || "Gracz" };
+    if (normalizeMode(currentRoom.mode) === "monopoly") {
+      currentRoom.monopoly.soloActiveSeat = seatIdx;
+    }
     maybeAutoStartClock(currentRoom, now);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
@@ -236,30 +305,87 @@ io.on("connection", socket => {
     currentRoom.drawOfferBy = null;
     currentRoom.isDraw = false;
     currentRoom.gameOver = false;
-    currentRoom.clock = createClockState(now, mins, wasRunning || hasFullLobby(currentRoom));
+    const isChess = normalizeMode(currentRoom.mode) !== "monopoly";
+    currentRoom.clock = createClockState(now, mins, isChess && (wasRunning || hasFullLobby(currentRoom)));
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
-  socket.on("changeMode", nextMode => {
+  socket.on("changeMode", (nextMode, extraOpts = {}) => {
     if (!currentRoom) return;
     const mode = normalizeMode(nextMode);
-    if (currentRoom.mode === mode) return;
     const now = Date.now();
+    const prevMode = normalizeMode(currentRoom.mode);
     currentRoom.mode = mode;
     currentRoom.mv = [];
     currentRoom.drawOfferBy = null;
     currentRoom.isDraw = false;
     currentRoom.gameOver = false;
-    const shouldRun = hasFullLobby(currentRoom);
-    currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES, shouldRun);
+    const pCount = extraOpts && extraOpts.monopolyPlayers
+      ? Math.max(2, Math.min(4, Number(extraOpts.monopolyPlayers) || 4))
+      : (currentRoom.monopoly?.playerCount || 4);
+    currentRoom.monopoly = createMonopolyState(pCount);
+
+    if (mode === "monopoly") {
+      currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES, false);
+    } else {
+      const shouldRun = hasFullLobby(currentRoom);
+      currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES, shouldRun);
+    }
+    if (prevMode !== mode || extraOpts.monopolyPlayers) {
+      io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
+    }
+  });
+
+  socket.on("setMonopolyPlayers", count => {
+    if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
+    const cnt = Math.max(2, Math.min(4, Number(count) || 4));
+    const now = Date.now();
+    currentRoom.monopoly = createMonopolyState(cnt);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
+  });
+
+  socket.on("monopolyRoll", targetSeatOverride => {
+    if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
+    const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
+    if (seat === -1) return;
+    if (!currentRoom.monopoly) currentRoom.monopoly = createMonopolyState(4);
+    const mono = currentRoom.monopoly;
+    const occupiedCount = currentRoom.seats.slice(0, mono.playerCount).filter(Boolean).length;
+    const activePlayer = occupiedCount <= 1 && typeof targetSeatOverride === "number" && targetSeatOverride >= 0 && targetSeatOverride < mono.playerCount
+      ? targetSeatOverride
+      : mono.turn;
+
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    const steps = d1 + d2;
+    const prevPos = mono.positions[activePlayer] || 0;
+    const nextPos = (prevPos + steps) % 40;
+
+    mono.dice = [d1, d2];
+    mono.positions[activePlayer] = nextPos;
+    mono.soloActiveSeat = activePlayer;
+    mono.turn = (activePlayer + 1) % mono.playerCount;
+    mono.rollSeq = (mono.rollSeq || 0) + 1;
+    mono.lastRollAt = Date.now();
+
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
+  });
+
+  socket.on("monopolySelectSoloSeat", seatIdx => {
+    if (!currentRoom || normalizeMode(currentRoom.mode) !== "monopoly") return;
+    if (!currentRoom.monopoly) currentRoom.monopoly = createMonopolyState(4);
+    const mono = currentRoom.monopoly;
+    if (typeof seatIdx !== "number" || seatIdx < 0 || seatIdx >= mono.playerCount) return;
+    mono.soloActiveSeat = seatIdx;
+    mono.turn = seatIdx;
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, Date.now()));
   });
 
   socket.on("confirmStart", () => {
     if (!currentRoom) return;
     const now = Date.now();
     syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
-    if (!currentRoom.isDraw && !currentRoom.gameOver) {
+    if (!currentRoom.isDraw && !currentRoom.gameOver && normalizeMode(currentRoom.mode) !== "monopoly") {
       currentRoom.clock.running = true;
       currentRoom.clock.lastTickAt = now;
     }
@@ -321,7 +447,9 @@ io.on("connection", socket => {
     currentRoom.drawOfferBy = null;
     currentRoom.isDraw = false;
     currentRoom.gameOver = false;
-    const shouldRun = hasFullLobby(currentRoom);
+    const mode = normalizeMode(currentRoom.mode);
+    currentRoom.monopoly = createMonopolyState(currentRoom.monopoly?.playerCount || 4);
+    const shouldRun = mode !== "monopoly" && hasFullLobby(currentRoom);
     currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES, shouldRun);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
