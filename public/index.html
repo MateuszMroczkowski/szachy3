@@ -67,18 +67,12 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
   25%{transform:scale(1.35);opacity:1}
   100%{transform:scale(1.8);opacity:0}
 }
-@keyframes fxUpsetPop{
-  0%{transform:translateY(8px) scale(.65);opacity:0}
-  25%{transform:translateY(-14px) scale(1.18);opacity:1}
-  80%{transform:translateY(-28px) scale(1);opacity:1}
-  100%{transform:translateY(-38px) scale(.92);opacity:0}
-}
+  
 .fx-wrap{pointer-events:none;animation:fxFade 1.15s ease-out forwards}
 .fx-laser-glow{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1400;animation:fxLaserShoot 1.15s cubic-bezier(.14,.88,.28,1) forwards}
 .fx-laser-core{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1400;animation:fxLaserCore 1.15s cubic-bezier(.14,.88,.28,1) forwards}
 .fx-ring{transform-box:fill-box;transform-origin:center;animation:fxBlastRing .72s cubic-bezier(.16,.84,.3,1) forwards}
 .fx-node{transform-box:fill-box;transform-origin:center;animation:fxNodePulse .85s ease-out forwards}
-.fx-upset-txt{font:900 22px system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#000;stroke-width:5px;animation:fxUpsetPop 1.15s ease-out forwards}
 
 .ov{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9;padding:12px}
 .box{background:var(--pn);border-radius:14px;padding:20px;max-width:480px;width:100%;box-shadow:0 10px 30px #0009}
