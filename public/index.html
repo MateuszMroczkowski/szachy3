@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Szachy dla trzech graczy</title>
+<title>Szachy dla trzech graczy & Monopoly</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232b2621'/%3E%3Cpath fill='%23f59e0b' stroke='%23161616' stroke-width='2.5' stroke-linejoin='round' d='M20 52h24v5H20zm3-5c0-6 4-9 8-12l-5-2c-3-1-5-4-4-8 1-4 5-7 7-11l-1-6 6 3 4-4 2 5c7 2 11 8 11 16 0 7-4 12-7 16v2H23zm9-25a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#1d1a17;--fg:#efe7da;--pn:#2b2621;--ac:#d9a45b}
@@ -22,7 +22,7 @@ label{display:inline-flex;gap:5px;align-items:center;min-height:40px}
 .clock-state-pill.live{color:#50ef39;border:1px solid #50ef3955}
 #main{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:10px;padding:6px;max-width:1600px;margin:0 auto}
 svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:manipulation}
-#side{width:min(98vw,285px);background:var(--pn);border-radius:10px;padding:10px}
+#side{width:min(98vw,295px);background:var(--pn);border-radius:10px;padding:10px}
 #side h3{margin:4px 0 8px;font-size:14px;border-bottom:1px solid #fff2;padding-bottom:4px}
 #seats{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .seat{display:flex;flex-direction:column;gap:5px;background:#362f29;padding:7px 9px;border-radius:8px;font-size:13px}
@@ -62,6 +62,26 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 .time-btn{min-height:42px;padding:6px 8px;border-radius:8px;background:#362f29;border:2px solid transparent;font-weight:700;font-size:13px}
 .time-btn.sel{border-color:var(--ac);background:var(--ac);color:#201a13}
 .sec-lbl{width:100%;font-weight:700;margin-top:8px;font-size:13px;opacity:.9}
+
+#monoArea{display:none;flex-direction:column;align-items:center;width:100%}
+.mono-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;background:var(--pn);border:1px solid #fff2;border-radius:14px;padding:10px 16px;margin-bottom:10px}
+.dice-box{display:inline-flex;align-items:center;gap:8px}
+.die{width:46px;height:46px;border-radius:10px;background:#f5efe4;color:#1d1a17;font-size:26px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #8a7b66,0 6px 14px #0007;user-select:none;transition:transform .12s}
+.die.rolling{animation:diceSpin .35s linear infinite;background:#fde68a}
+@keyframes diceSpin{0%{transform:rotate(0deg) scale(1)}50%{transform:rotate(14deg) scale(1.12)}100%{transform:rotate(0deg) scale(1)}}
+#monoBoard{width:min(94vw,76vh);aspect-ratio:1/1;background:#d8e8d4;border:10px solid #23201d;border-radius:16px;box-shadow:0 14px 36px #000a;display:grid;grid-template-columns:1.35fr repeat(9,1fr) 1.35fr;grid-template-rows:1.35fr repeat(9,1fr) 1.35fr;position:relative;overflow:hidden;color:#1b1917}
+.m-cell{border:1px solid #2b282466;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:2px;font-size:9px;font-weight:700;line-height:1.05;background:#e5efe1;overflow:hidden}
+.m-cell.corner{background:#d1e5cd;justify-content:center;align-items:center;text-align:center;font-size:10px;font-weight:800;padding:3px}
+.m-bar{height:18%;min-height:6px;width:100%;border-bottom:1px solid #0003;margin:-2px -2px 1px -2px;width:calc(100% + 4px)}
+.m-bar.v-left{height:100%;width:18%;min-width:6px;border-bottom:0;border-right:1px solid #0003;margin:-2px 2px -2px -2px;float:left}
+.m-bar.v-right{height:100%;width:18%;min-width:6px;border-bottom:0;border-left:1px solid #0003;margin:-2px -2px -2px 2px;float:right}
+.m-title{text-align:center;word-break:break-word;z-index:1}
+.m-tokens{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;align-items:center;z-index:2;margin-top:auto}
+.m-tok{width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px #0009;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;text-shadow:0 1px 2px #000;transition:transform .14s}
+.m-tok.active{transform:scale(1.18);outline:2px solid #fbbf24}
+.m-center{grid-column:2 / 11;grid-row:2 / 11;background:#dcead8;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;border:1px solid #2b282444}
+.m-center-logo{font-size:28px;font-weight:900;letter-spacing:2px;color:#274e37;background:#fff8;padding:8px 18px;border-radius:10px;border:2px solid #274e3744}
+.m-solo-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
 </style></head><body>
 
 <div id="bar">
@@ -70,13 +90,15 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
   <button id="switchModeBtn" style="display:none" title="Zmień tryb, czas lub kolor w pokoju">Tryb / Czas / Kolor</button>
   <button id="confirmStartBtn" class="on" style="display:none" title="Zatwierdź start i uruchom zegary">Zatwierdź start</button>
   <span id="turn">Łączenie...</span>
-  <button id="undo" title="Podgląd poprzedniego ruchu">◀</button>
-  <button id="redo" title="Podgląd następnego ruchu">▶</button>
-  <button id="live" class="on" style="display:none">Wróć do gry</button>
-  <button id="clr">Usuń rysunki</button>
-  <button id="arr">Strzałki: wył.</button>
-  <select id="theme"><option value="w1">Drewno jasne</option><option value="w2">Drewno ciemne</option><option value="m">Marmur</option><option value="pl">Plastik</option></select>
-  <label><input type="checkbox" id="lab" checked>Numery pól</label>
+  <span id="chessBarControls">
+    <button id="undo" title="Podgląd poprzedniego ruchu">◀</button>
+    <button id="redo" title="Podgląd następnego ruchu">▶</button>
+    <button id="live" class="on" style="display:none">Wróć do gry</button>
+    <button id="clr">Usuń rysunki</button>
+    <button id="arr">Strzałki: wył.</button>
+    <select id="theme"><option value="w1">Drewno jasne</option><option value="w2">Drewno ciemne</option><option value="m">Marmur</option><option value="pl">Plastik</option></select>
+    <label><input type="checkbox" id="lab" checked>Numery pól</label>
+  </span>
   <button id="colors">Twój kolor</button>
   <button id="drawBtn" style="display:none">Remis</button>
   <button id="mute">Dźwięk: wł.</button>
@@ -85,26 +107,41 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 
 <div id="main">
   <div id="boardWrap">
-    <div id="gameClockBar">
-      <span>Czas gry:</span>
-      <span id="gameClockVal">00:00</span>
-      <span style="opacity:.45">•</span>
-      <span id="timePoolInfo">Pula: 2h (po 40:00 / gracz)</span>
-      <span id="clockStateBadge" class="clock-state-pill paused">Oczekiwanie (0/3)</span>
+    <div id="chessClockWrap">
+      <div id="gameClockBar">
+        <span>Czas gry:</span>
+        <span id="gameClockVal">00:00</span>
+        <span style="opacity:.45">•</span>
+        <span id="timePoolInfo">Pula: 2h (po 40:00 / gracz)</span>
+        <span id="clockStateBadge" class="clock-state-pill paused">Oczekiwanie (0/3)</span>
+      </div>
     </div>
     <svg id="s" viewBox="230 0 1510 1310"></svg>
+
+    <div id="monoArea">
+      <div class="mono-top">
+        <div class="dice-box">
+          <div id="die1" class="die">1</div>
+          <div id="die2" class="die">1</div>
+        </div>
+        <button id="rollDiceBtn" class="on">Rzuć kostkami</button>
+        <span id="monoLastRoll" style="font-size:13px;opacity:.9">Ostatni rzut: —</span>
+      </div>
+      <div id="monoBoard"></div>
+      <div id="monoSoloWrap" class="m-solo-bar" style="display:none"></div>
+    </div>
   </div>
   <div id="side">
-    <h3>Gracze i pozostały czas</h3>
+    <h3 id="seatsTitle">Gracze i pozostały czas</h3>
     <div id="seats"></div>
-    <h3>Historia ruchów</h3>
+    <h3 id="historyTitle">Historia ruchów</h3>
     <ul id="list"></ul>
   </div>
 </div>
 
 <div id="lobby" class="ov" style="display:flex">
   <div class="box">
-    <h2>Szachy dla trzech graczy</h2>
+    <h2>Szachy dla trzech graczy & Monopoly</h2>
     <div class="row"><input type="text" id="nick" placeholder="Twój nick" style="width:100%"></div>
 
     <div class="row" style="margin:10px 0">
@@ -120,11 +157,20 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
           <span class="mode-name">Big 3v3</span>
           <span class="mode-sub">10 pól / bok</span>
         </button>
-        <button type="button" class="mode-card soon" data-mode="monopoly" disabled title="Tryb w przygotowaniu">
+        <button type="button" class="mode-card" data-mode="monopoly">
           <span class="mode-ico">🎲</span>
           <span class="mode-name">Monopoly</span>
-          <span class="mode-sub">Wkrótce</span>
+          <span class="mode-sub">2–4 graczy</span>
         </button>
+      </div>
+    </div>
+
+    <div id="monoPlayersRow" class="row" style="margin:10px 0;display:none">
+      <b style="width:100%">Liczba graczy Monopoly (2–4):</b>
+      <div id="lobbyMonoPlayers" class="time-grid" style="grid-template-columns:repeat(3,1fr)">
+        <button type="button" class="time-btn" data-pcount="2">2 graczy</button>
+        <button type="button" class="time-btn" data-pcount="3">3 graczy</button>
+        <button type="button" class="time-btn sel" data-pcount="4">4 graczy</button>
       </div>
     </div>
 
@@ -156,7 +202,7 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 <div id="modeSwitchOv" class="ov">
   <div class="box">
     <h2>Ustawienia pokoju</h2>
-    <div class="sec-lbl">Tryb gry (zmiana resetuje ruchy):</div>
+    <div class="sec-lbl">Tryb gry (zmiana resetuje planszę):</div>
     <div class="mode-grid" id="roomModePick">
       <button type="button" class="mode-card" data-mode="classic">
         <span class="mode-ico">♟</span>
@@ -168,19 +214,30 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
         <span class="mode-name">Big 3v3</span>
         <span class="mode-sub">10 pól / bok</span>
       </button>
-      <button type="button" class="mode-card soon" data-mode="monopoly" disabled title="Tryb w przygotowaniu">
+      <button type="button" class="mode-card" data-mode="monopoly">
         <span class="mode-ico">🎲</span>
         <span class="mode-name">Monopoly</span>
-        <span class="mode-sub">Wkrótce</span>
+        <span class="mode-sub">2–4 graczy</span>
       </button>
     </div>
 
-    <div class="sec-lbl">Czas meczu (max 3h, na 3 graczy):</div>
-    <div class="time-grid" id="roomTimePick">
-      <button type="button" class="time-btn" data-mins="30">30m</button>
-      <button type="button" class="time-btn" data-mins="60">1h</button>
-      <button type="button" class="time-btn" data-mins="120">2h</button>
-      <button type="button" class="time-btn" data-mins="180">3h</button>
+    <div id="roomMonoPlayersBlock" style="display:none">
+      <div class="sec-lbl">Liczba graczy Monopoly:</div>
+      <div class="time-grid" id="roomMonoPlayersPick" style="grid-template-columns:repeat(3,1fr)">
+        <button type="button" class="time-btn" data-pcount="2">2 graczy</button>
+        <button type="button" class="time-btn" data-pcount="3">3 graczy</button>
+        <button type="button" class="time-btn" data-pcount="4">4 graczy</button>
+      </div>
+    </div>
+
+    <div id="roomChessTimeBlock">
+      <div class="sec-lbl">Czas meczu (max 3h, na 3 graczy):</div>
+      <div class="time-grid" id="roomTimePick">
+        <button type="button" class="time-btn" data-mins="30">30m</button>
+        <button type="button" class="time-btn" data-mins="60">1h</button>
+        <button type="button" class="time-btn" data-mins="120">2h</button>
+        <button type="button" class="time-btn" data-mins="180">3h</button>
+      </div>
     </div>
 
     <div id="roomColorBlock" style="display:none">
@@ -226,10 +283,23 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null];
+let MY_SEAT = -1, IS_HOST = false, ROOM_CODE = "", SEATS = [null, null, null, null];
 let pendingPromo = null, drawOfferBy = null, isDraw = false, serverGameOver = false, endShownForKey = "";
-let lobbyColor = 0, lobbyMode = "classic", lobbyMinutes = 120, activeMode = "classic";
+let lobbyColor = 0, lobbyMode = "classic", lobbyMinutes = 120, lobbyMonoPlayers = 4, activeMode = "classic";
 let timeoutEliminated = [false, false, false], timeoutStatus = "";
+let monoState = {
+  playerCount: 4,
+  positions: [0, 0, 0, 0],
+  turn: 0,
+  dice: [1, 1],
+  rollSeq: 0,
+  soloActiveSeat: 0
+};
+let animPositions = [0, 0, 0, 0];
+let monoLog = [];
+let lastHandledRollSeq = 0;
+let isRollingAnim = false;
+let stepTimer = null;
 
 const DEFAULT_PER_PLAYER = Math.floor((120 * 60 * 1000) / 3);
 let clockState = {
@@ -260,15 +330,58 @@ const PAL = [
   ["Lawendowy", "#9484cf"]
 ];
 
+const MONO_TILES = [
+  {name:"START", type:"corner", color:null},
+  {name:"Brązowa I", type:"street", color:"#794628"},
+  {name:"Kasa Społ.", type:"chest", color:null},
+  {name:"Brązowa II", type:"street", color:"#794628"},
+  {name:"Podatek", type:"tax", color:null},
+  {name:"Kolej Pn.", type:"rail", color:null},
+  {name:"Jasnonieb. I", type:"street", color:"#7cc5eb"},
+  {name:"Szansa", type:"chance", color:null},
+  {name:"Jasnonieb. II", type:"street", color:"#7cc5eb"},
+  {name:"Jasnonieb. III", type:"street", color:"#7cc5eb"},
+  {name:"WIĘZIENIE", type:"corner", color:null},
+  {name:"Różowa I", type:"street", color:"#d93b8b"},
+  {name:"Elektrownia", type:"util", color:null},
+  {name:"Różowa II", type:"street", color:"#d93b8b"},
+  {name:"Różowa III", type:"street", color:"#d93b8b"},
+  {name:"Kolej Wsch.", type:"rail", color:null},
+  {name:"Pomarańcz. I", type:"street", color:"#f28522"},
+  {name:"Kasa Społ.", type:"chest", color:null},
+  {name:"Pomarańcz. II", type:"street", color:"#f28522"},
+  {name:"Pomarańcz. III", type:"street", color:"#f28522"},
+  {name:"PARKING", type:"corner", color:null},
+  {name:"Czerwona I", type:"street", color:"#e02b20"},
+  {name:"Szansa", type:"chance", color:null},
+  {name:"Czerwona II", type:"street", color:"#e02b20"},
+  {name:"Czerwona III", type:"street", color:"#e02b20"},
+  {name:"Kolej Pd.", type:"rail", color:null},
+  {name:"Żółta I", type:"street", color:"#f5d327"},
+  {name:"Żółta II", type:"street", color:"#f5d327"},
+  {name:"Wodociągi", type:"util", color:null},
+  {name:"Żółta III", type:"street", color:"#f5d327"},
+  {name:"DO WIĘZIENIA", type:"corner", color:null},
+  {name:"Zielona I", type:"street", color:"#1e8e3e"},
+  {name:"Zielona II", type:"street", color:"#1e8e3e"},
+  {name:"Kasa Społ.", type:"chest", color:null},
+  {name:"Zielona III", type:"street", color:"#1e8e3e"},
+  {name:"Kolej Zach.", type:"rail", color:null},
+  {name:"Szansa", type:"chance", color:null},
+  {name:"Granatowa I", type:"street", color:"#1b459c"},
+  {name:"Podatek bog.", type:"tax", color:null},
+  {name:"Granatowa II", type:"street", color:"#1b459c"}
+];
+
 const G={p:"♟",r:"♜",n:"♞",b:"♝",q:"♛",k:"♚"};
 const TH={w1:["#ecc995","#a86a3a",1],w2:["#c99a63","#5b3920",1],m:["#e9eaed","#6a7280",2],pl:["#f1e7d0","#2f7d5b",0]};
 const H={B0:[610,1300],B1:[1360,1300],R:[1730,655],T1:[1360,8],T0:[610,8],L:[240,655]},C=[985,655];
 const M={b:[985,1300],ll:[425,977],ul:[425,331],t:[985,8],ur:[1545,331],lr:[1545,977]};
 const Q=[[H.B0,M.b,C,M.ll],[M.ll,H.L,M.ul,C],[M.ul,H.T0,M.t,C],[M.t,H.T1,M.ur,C],[M.ur,H.R,M.lr,C],[M.lr,H.B1,M.b,C]];
 const SIDES=[
-  {a:H.B0,b:H.B1,in:[0,-1],set8:"rnbqkbnr",set10:"rnbqkqbnr"},
-  {a:H.L,b:H.T0,in:[.866,.5],set8:"rnbkqbnr",set10:"rnbkqkbne"},
-  {a:H.T1,b:H.R,in:[-.866,.5],set8:"rnbkqbnr",set10:"rnbkqkbne"}
+  {a:H.B0,b:H.B1,set8:"rnbqkbnr",set10:"rnbqkqbnrr"},
+  {a:H.L,b:H.T0,set8:"rnbkqbnr",set10:"rnbkqkbne"},
+  {a:H.T1,b:H.R,set8:"rnbkqbnr",set10:"rnbkqkbne"}
 ];
 
 const bil=(q,u,v)=>[0,1].map(k=>(1-u)*(1-v)*q[0][k]+u*(1-v)*q[1][k]+u*v*q[2][k]+(1-u)*v*q[3][k]);
@@ -328,17 +441,27 @@ function buildBoardGeometry(mode){
 let geom = buildBoardGeometry("classic");
 const go=(c,e)=>geom.cells[c].n[e];
 
-let B,turn,alive,sel=null,hl=[],arrows=[],marks=new Set(),rs=null,last=null,homeRow=[],status="",mv=[],notes=[],pos=0,cols=[0,1,2],theme="w1",arrMode=false;
+let B,turn,alive,sel=null,hl=[],arrows=[],marks=new Set(),rs=null,last=null,homeRow=[],status="",mv=[],notes=[],pos=0,cols=[0,1,2,4],theme="w1",arrMode=false;
 
 function playerName(o){return SEATS[o]?.name || `Gracz ${o+1}`;}
-function modeLabel(m){return m==="big"?"Big 3v3":"Classic 3v3";}
+function modeLabel(m){
+  if(m==="monopoly")return`Monopoly (${monoState.playerCount}p)`;
+  if(m==="big")return"Big 3v3";
+  return"Classic 3v3";
+}
 function minutesLabel(mins){
   if(mins===180)return"3h";
   if(mins===120)return"2h";
   if(mins===60)return"1h";
   return"30m";
 }
-function seatedCount(){return SEATS.filter(Boolean).length;}
+function activeSeatLimit(){
+  return activeMode==="monopoly"?monoState.playerCount:3;
+}
+function seatedCount(){
+  const lim=activeSeatLimit();
+  return SEATS.slice(0,lim).filter(Boolean).length;
+}
 
 function formatDuration(ms){
  const totalSec=Math.max(0,Math.floor((ms||0)/1000));
@@ -361,13 +484,14 @@ function getLiveClocks(now=Date.now()){
 }
 
 function isGameOverNow(){
+ if(activeMode==="monopoly")return false;
  const finalStatus=isDraw?"Remis":(status||timeoutStatus);
  const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
  return !!(finalStatus||w>=0||serverGameOver);
 }
 
 function handleTimeoutsIfNeeded(){
- if(!B||!alive||!clockState.running)return false;
+ if(activeMode==="monopoly"||!B||!alive||!clockState.running)return false;
  if(isGameOverNow())return false;
  const {remainingMs}=getLiveClocks();
  let changed=false;
@@ -390,6 +514,7 @@ function handleTimeoutsIfNeeded(){
 }
 
 function renderClocks(){
+ if(activeMode==="monopoly")return;
  const {gameElapsedMs,remainingMs}=getLiveClocks();
  $("gameClockVal").textContent=formatDuration(gameElapsedMs);
  const mins=clockState.totalMinutes||120;
@@ -434,14 +559,33 @@ function emitMoveWithMeta(a,b,promo){
  socket.emit("makeMove",[a,b,promo||null],{nextTurn,gameOver:nextOver});
 }
 
-function backRowFor(seq, count){
- const base=seq.split("").map(ch=>ch==="e"?"n":ch);
- if(base.length===count)return base;
- while(base.length<count){
-  const mid=Math.floor(base.length/2);
-  base.splice(mid,0,"p");
+function buildBackRow(count, sideIdx){
+ const row=Array(count).fill("p");
+ if(count<=0)return row;
+ const leftR=0;
+ const rightR=count-1;
+ row[leftR]="r";
+ row[rightR]="r";
+ if(count>=4){
+  row[leftR+1]="r";
+  row[rightR-1]="r";
  }
- return base.slice(0,count);
+ const mid=Math.floor(count/2);
+ if(sideIdx===0){
+  row[mid-1]="q";
+  row[mid]="k";
+ }else{
+  row[mid-1]="k";
+  row[mid]="q";
+ }
+ const extras=["n","b","n","b"];
+ let ei=0;
+ for(let i=0;i<count;i++){
+  if(row[i]==="p" && Math.abs(i-mid)<=3 && ei<extras.length){
+   row[i]=extras[ei++];
+  }
+ }
+ return row;
 }
 
 function setup(){
@@ -459,10 +603,9 @@ function setup(){
   });
   row.sort((x,y)=>x.t-y.t);
   homeRow[o]=row.map(r=>r.c);
-  const rawSeq=row.length>=10?S.set10:S.set8;
-  const seq=backRowFor(rawSeq,row.length);
+  const seq=buildBackRow(row.length,o);
   row.forEach((r,i)=>{
-   const pt=seq[i]||"r";
+   const pt=seq[i]||"p";
    B[r.c]={t:pt,o,moved:0};
    const f=go(r.c,(r.e+2)%4);
    if(f)B[f[0]]={t:"p",o,h:(f[1]+2)%4,moved:0};
@@ -611,7 +754,7 @@ function rebuild(n,quiet=true){
 }
 
 function pick(i){
- if(pos!==mv.length||isDraw||timeoutStatus||serverGameOver) return;
+ if(activeMode==="monopoly"||pos!==mv.length||isDraw||timeoutStatus||serverGameOver) return;
  if(sel!=null&&hl.includes(i)){
   const p=B[sel];
   let isPromo=false;
@@ -638,125 +781,304 @@ function pick(i){
 const shade=(h,p)=>{const n=parseInt(h.slice(1),16),f=c=>Math.max(0,Math.min(255,Math.round(p<0?c*(1+p):c+(255-c)*p)));return"#"+[n>>16,n>>8&255,n&255].map(f).map(v=>v.toString(16).padStart(2,"0")).join("")};
 const lum=h=>{const n=parseInt(h.slice(1),16);return((n>>16)*.3+(n>>8&255)*.59+(n&255)*.11)};
 
+function tileGridCoord(idx){
+ if(idx===0)return[11,11];
+ if(idx>0&&idx<10)return[11-idx,11];
+ if(idx===10)return[1,11];
+ if(idx>10&&idx<20)return[1,11-(idx-10)];
+ if(idx===20)return[1,1];
+ if(idx>20&&idx<30)return[1+(idx-20),1];
+ if(idx===30)return[11,1];
+ return[11,1+(idx-30)];
+}
+
+function renderMonopolyBoard(){
+ const board=$("monoBoard");
+ let html=`<div class="m-center">
+  <div class="m-center-logo">MONOPOLY</div>
+  <div style="font-size:13px;opacity:.85">Plansza 1:1 • Ruch pionków i kości (2–4 graczy)</div>
+ </div>`;
+
+ MONO_TILES.forEach((tile,idx)=>{
+  const [r,c]=tileGridCoord(idx);
+  const isCorner=tile.type==="corner";
+  let barHtml="";
+  if(!isCorner && tile.color){
+   if(r===11)barHtml=`<div class="m-bar" style="background:${tile.color}"></div>`;
+   else if(r===1)barHtml=`<div class="m-bar" style="background:${tile.color};order:2;border-bottom:0;border-top:1px solid #0003;margin:1px -2px -2px -2px"></div>`;
+   else if(c===1)barHtml=`<div class="m-bar v-right" style="background:${tile.color}"></div>`;
+   else if(c===11)barHtml=`<div class="m-bar v-left" style="background:${tile.color}"></div>`;
+  }
+
+  const tokens=[];
+  for(let p=0;p<monoState.playerCount;p++){
+   if(animPositions[p]===idx){
+    const colHex=PAL[cols[p]??0]?.[1]||"#e52521";
+    const isAct=(seatedCount()<=1 ? monoState.soloActiveSeat===p : monoState.turn===p);
+    tokens.push(`<span class="m-tok ${isAct?"active":""}" style="background:${colHex}" title="${playerName(p)}">${p+1}</span>`);
+   }
+  }
+
+  html+=`<div class="m-cell ${isCorner?"corner":""}" style="grid-row:${r};grid-column:${c}">
+   ${barHtml}
+   <div class="m-title">${tile.name}</div>
+   <div class="m-tokens">${tokens.join("")}</div>
+  </div>`;
+ });
+
+ board.innerHTML=html;
+ $("die1").textContent=monoState.dice[0]||1;
+ $("die2").textContent=monoState.dice[1]||1;
+
+ const lastEntry=monoLog[monoLog.length-1];
+ $("monoLastRoll").textContent=lastEntry?`Ostatni rzut: ${lastEntry}`:"Ostatni rzut: —";
+
+ const occCount=seatedCount();
+ const canRoll = MY_SEAT>=0 && !isRollingAnim;
+ $("rollDiceBtn").disabled=!canRoll;
+
+ const soloWrap=$("monoSoloWrap");
+ if(MY_SEAT>=0 && occCount<=1){
+  soloWrap.style.display="flex";
+  soloWrap.innerHTML=`<span style="font-size:12px;opacity:.85;align-self:center">Test solo — aktywny pionek:</span>`+
+   Array.from({length:monoState.playerCount},(_,p)=>{
+    const colHex=PAL[cols[p]??0]?.[1]||"#e52521";
+    const sel=monoState.soloActiveSeat===p;
+    return `<button type="button" class="${sel?"on":""}" style="min-height:30px;padding:0 10px;font-size:12px;display:inline-flex;align-items:center;gap:5px" onclick="socket.emit('monopolySelectSoloSeat',${p})">
+     <span class="dot" style="background:${colHex}"></span>Pionek ${p+1}
+    </button>`;
+   }).join("");
+ }else{
+  soloWrap.style.display="none";
+ }
+}
+
+function animateMonopolyRoll(st){
+ const prevPos=[...animPositions];
+ const targetPos=[...st.positions];
+ const moverSeat = (seatedCount()<=1 && typeof st.soloActiveSeat==="number")
+  ? st.soloActiveSeat
+  : ((st.turn - 1 + st.playerCount) % st.playerCount);
+
+ const startP = prevPos[moverSeat] ?? 0;
+ const endP = targetPos[moverSeat] ?? 0;
+ let steps = (endP - startP + 40) % 40;
+ if(steps === 0){
+  const sumDice = (st.dice?.[0]||1) + (st.dice?.[1]||1);
+  steps = sumDice;
+ }
+
+ if(stepTimer){
+  clearInterval(stepTimer);
+  stepTimer=null;
+ }
+
+ isRollingAnim=true;
+ $("die1").classList.add("rolling");
+ $("die2").classList.add("rolling");
+ renderMonopolyBoard();
+
+ const diceSpinMs=420;
+ setTimeout(()=>{
+  $("die1").classList.remove("rolling");
+  $("die2").classList.remove("rolling");
+  $("die1").textContent=st.dice?.[0]||1;
+  $("die2").textContent=st.dice?.[1]||1;
+  snd(560,.08);
+
+  let curStep=0;
+  let curTile=startP;
+  stepTimer=setInterval(()=>{
+   curStep++;
+   curTile=(curTile+1)%40;
+   animPositions[moverSeat]=curTile;
+   snd(440+curStep*22,.05,"triangle");
+   renderMonopolyBoard();
+   if(curStep>=steps){
+    clearInterval(stepTimer);
+    stepTimer=null;
+    animPositions=[...targetPos];
+    isRollingAnim=false;
+    const tileName=MONO_TILES[endP]?.name||`Pole ${endP}`;
+    monoLog.push(`${playerName(moverSeat)} wyrzucił ${st.dice[0]}+${st.dice[1]} → ${tileName}`);
+    draw();
+   }
+  },115);
+ },diceSpinMs);
+}
+
 function draw(){
- const rot = MY_SEAT > 0 ? MY_SEAT * -120 : 0;
- const T=TH[theme],cl=cols.map(i=>PAL[i][1]),hex=Object.values(H).map(p=>p.join(",")).join(" ");
- const lbScale = geom.gridN > 4 ? 0.8 : 1;
- const pcScale = geom.gridN > 4 ? 0.82 : 1;
- let h=`<defs><clipPath id="hx"><polygon points="${hex}"/></clipPath>
+ const isMono = activeMode==="monopoly";
+ $("chessClockWrap").style.display = isMono ? "none" : "flex";
+ $("s").style.display = isMono ? "none" : "block";
+ $("monoArea").style.display = isMono ? "flex" : "none";
+ $("chessBarControls").style.display = isMono ? "none" : "inline-flex";
+ $("seatsTitle").textContent = isMono ? `Gracze Monopoly (${monoState.playerCount})` : "Gracze i pozostały czas";
+ $("historyTitle").textContent = isMono ? "Dziennik rzutów" : "Historia ruchów";
+
+ if(isMono){
+  renderMonopolyBoard();
+ }else{
+  const rot = MY_SEAT > 0 ? MY_SEAT * -120 : 0;
+  const T=TH[theme],cl=cols.slice(0,3).map(i=>PAL[i][1]),hex=Object.values(H).map(p=>p.join(",")).join(" ");
+  const lbScale = geom.gridN > 4 ? 0.76 : 1;
+  const pcScale = geom.gridN > 4 ? 0.78 : 1;
+  let h=`<defs><clipPath id="hx"><polygon points="${hex}"/></clipPath>
 <filter id="wd" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.09" numOctaves="4" seed="7"/><feColorMatrix values="0 0 0 0 .22 0 0 0 0 .11 0 0 0 0 .03 1.7 0 0 0 -.55"/></filter>
 <filter id="mb" x="0" y="0" width="100%" height="100%"><feTurbulence type="turbulence" baseFrequency="0.004 0.006" numOctaves="5" seed="4"/><feColorMatrix values="0 0 0 0 .1 0 0 0 0 .12 0 0 0 0 .16 -2.2 0 0 0 .75"/></filter>
 ${cl.map((c,o)=>`<linearGradient id="pg${o}" x1="0" y1="0" x2=".7" y2="1"><stop offset="0" stop-color="${shade(c,.45)}"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${shade(c,-.35)}"/></linearGradient>`).join("")}
 <marker id="ah" markerWidth="4" markerHeight="4" refX="2.2" refY="2" orient="auto"><path d="M0,0L4,2L0,4z" fill="#f59e0b"/></marker></defs>
 <g transform="rotate(${rot} 985 655)">
 <polygon points="${hex}" fill="#4a2f1a" stroke="#4a2f1a" stroke-width="26" stroke-linejoin="round"/>`;
- const poly=i=>geom.cells[i].pts.map(p=>p.join(",")).join(" ");
- geom.cells.forEach(c=>{h+=`<polygon data-i="${c.id}" points="${poly(c.id)}" fill="${T[geom.col[c.id]]}" stroke="#0003" stroke-width="1"/>`;});
- if(T[2]==1){const lp=(p,q,t)=>[p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t],rd=(i,k)=>{const x=Math.sin(i*12.9898+k*78.233)*43758.5453;return x-Math.floor(x)};
-  geom.cells.forEach(c=>{const dk=geom.col[c.id],cp=c.pts;
-   h+=`<polygon points="${poly(c.id)}" fill="${rd(c.id,1)>.5?"#fff":"#000"}" opacity="${(rd(c.id,2)*.1).toFixed(3)}" pointer-events="none"/>`;
-   for(let k=0;k<16;k++){const v=(k+rd(c.id,k+3))/16,a=lp(cp[0],cp[3],v),b=lp(cp[1],cp[2],v),mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,w=(rd(c.id,k+60)-.5)*9,dx=b[1]-a[1],dy=a[0]-b[0],L=Math.hypot(dx,dy)||1,q=rd(c.id,k+9);
-    h+=`<path d="M${a[0]},${a[1]}Q${mx+dx/L*w},${my+dy/L*w} ${b[0]},${b[1]}" fill="none" stroke="${q>.82?(dk?"#d9b27c":"#fff2d6"):(dk?"#1f0e03":"#5b3a1a")}" stroke-opacity="${(.06+rd(c.id,k+30)*(q>.82?.15:.2)).toFixed(2)}" stroke-width="${(.6+rd(c.id,k+40)*(q>.82?1.4:2.4)).toFixed(1)}" pointer-events="none"/>`;}
-  });}
- if(T[2]==2)h+=`<g clip-path="url(#hx)" style="mix-blend-mode:multiply;pointer-events:none"><rect x="230" y="0" width="1520" height="1310" filter="url(#mb)" opacity=".6"/></g>`;
- if(lab.checked)geom.cells.forEach(c=>{if(!B[c.id])h+=`<text class="lb" style="font-size:${(22*lbScale).toFixed(1)}px" x="${c.ctr[0]}" y="${c.ctr[1]}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="${geom.col[c.id]?"#ffffffb0":"#000000a0"}">${c.name}</text>`;});
- if(last)last.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#ffe14d77" pointer-events="none"/>`);
- [0,1,2].forEach(o=>{
-  if(alive[o] && inCheck(o)){
-   const ki=B.findIndex(p=>p&&p.o==o&&p.t=="k");
-   if(ki>=0) h+=`<polygon points="${poly(ki)}" fill="#ff2a2a66" stroke="#ff3b30" stroke-width="4" pointer-events="none"/>`;
-  }
- });
- marks.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#e5484d99" pointer-events="none"/>`);
- if(sel!=null)h+=`<polygon points="${poly(sel)}" fill="#4cc9f088" pointer-events="none"/>`;
- geom.cells.forEach(c=>{const p=B[c.id];if(p){const f=cl[p.o];h+=`<text class="p" style="font-size:${(84*pcScale).toFixed(1)}px" x="${c.ctr[0]}" y="${c.ctr[1]+4}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="url(#pg${p.o})" stroke="${lum(f)<90?"#e8e0d0":"#000"}">${G[p.t]}\uFE0E</text>`;}});
- hl.forEach(i=>{const c=geom.cells[i];h+=B[i]?`<circle cx="${c.ctr[0]}" cy="${c.ctr[1]}" r="${(40*pcScale).toFixed(1)}" fill="none" stroke="#e5484d" stroke-width="8" pointer-events="none"/>`:`<circle cx="${c.ctr[0]}" cy="${c.ctr[1]}" r="${(15*pcScale).toFixed(1)}" fill="#000a" pointer-events="none"/>`;});
- arrows.forEach(([a,z])=>{const pt=arrowPath(a,z).map(i=>geom.cells[i].ctr.slice()),L=pt.length,u=nrm([pt[L-1][0]-pt[L-2][0],pt[L-1][1]-pt[L-2][1]]);pt[L-1][0]-=u[0]*14;pt[L-1][1]-=u[1]*14;
-  h+=`<polyline points="${pt.map(p=>p.join(",")).join(" ")}" fill="none" stroke="#f59e0b" stroke-opacity=".85" stroke-width="14" stroke-linejoin="round" marker-end="url(#ah)" pointer-events="none"/>`;});
- h+=`</g>`;
- s.innerHTML=h;
+  const poly=i=>geom.cells[i].pts.map(p=>p.join(",")).join(" ");
+  geom.cells.forEach(c=>{h+=`<polygon data-i="${c.id}" points="${poly(c.id)}" fill="${T[geom.col[c.id]]}" stroke="#0003" stroke-width="1"/>`;});
+  if(T[2]==1){const lp=(p,q,t)=>[p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t],rd=(i,k)=>{const x=Math.sin(i*12.9898+k*78.233)*43758.5453;return x-Math.floor(x)};
+   geom.cells.forEach(c=>{const dk=geom.col[c.id],cp=c.pts;
+    h+=`<polygon points="${poly(c.id)}" fill="${rd(c.id,1)>.5?"#fff":"#000"}" opacity="${(rd(c.id,2)*.1).toFixed(3)}" pointer-events="none"/>`;
+    for(let k=0;k<16;k++){const v=(k+rd(c.id,k+3))/16,a=lp(cp[0],cp[3],v),b=lp(cp[1],cp[2],v),mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,w=(rd(c.id,k+60)-.5)*9,dx=b[1]-a[1],dy=a[0]-b[0],L=Math.hypot(dx,dy)||1,q=rd(c.id,k+9);
+     h+=`<path d="M${a[0]},${a[1]}Q${mx+dx/L*w},${my+dy/L*w} ${b[0]},${b[1]}" fill="none" stroke="${q>.82?(dk?"#d9b27c":"#fff2d6"):(dk?"#1f0e03":"#5b3a1a")}" stroke-opacity="${(.06+rd(c.id,k+30)*(q>.82?.15:.2)).toFixed(2)}" stroke-width="${(.6+rd(c.id,k+40)*(q>.82?1.4:2.4)).toFixed(1)}" pointer-events="none"/>`;}
+   });}
+  if(T[2]==2)h+=`<g clip-path="url(#hx)" style="mix-blend-mode:multiply;pointer-events:none"><rect x="230" y="0" width="1520" height="1310" filter="url(#mb)" opacity=".6"/></g>`;
+  if(lab.checked)geom.cells.forEach(c=>{if(!B[c.id])h+=`<text class="lb" style="font-size:${(22*lbScale).toFixed(1)}px" x="${c.ctr[0]}" y="${c.ctr[1]}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="${geom.col[c.id]?"#ffffffb0":"#000000a0"}">${c.name}</text>`;});
+  if(last)last.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#ffe14d77" pointer-events="none"/>`);
+  [0,1,2].forEach(o=>{
+   if(alive[o] && inCheck(o)){
+    const ki=B.findIndex(p=>p&&p.o==o&&p.t=="k");
+    if(ki>=0) h+=`<polygon points="${poly(ki)}" fill="#ff2a2a66" stroke="#ff3b30" stroke-width="4" pointer-events="none"/>`;
+   }
+  });
+  marks.forEach(i=>h+=`<polygon points="${poly(i)}" fill="#e5484d99" pointer-events="none"/>`);
+  if(sel!=null)h+=`<polygon points="${poly(sel)}" fill="#4cc9f088" pointer-events="none"/>`;
+  geom.cells.forEach(c=>{const p=B[c.id];if(p){const f=cl[p.o];h+=`<text class="p" style="font-size:${(84*pcScale).toFixed(1)}px" x="${c.ctr[0]}" y="${c.ctr[1]+4}" transform="rotate(${-rot} ${c.ctr[0]} ${c.ctr[1]})" fill="url(#pg${p.o})" stroke="${lum(f)<90?"#e8e0d0":"#000"}">${G[p.t]}\uFE0E</text>`;}});
+  hl.forEach(i=>{const c=geom.cells[i];h+=B[i]?`<circle cx="${c.ctr[0]}" cy="${c.ctr[1]}" r="${(40*pcScale).toFixed(1)}" fill="none" stroke="#e5484d" stroke-width="8" pointer-events="none"/>`:`<circle cx="${c.ctr[0]}" cy="${c.ctr[1]}" r="${(15*pcScale).toFixed(1)}" fill="#000a" pointer-events="none"/>`;});
+  arrows.forEach(([a,z])=>{const pt=arrowPath(a,z).map(i=>geom.cells[i].ctr.slice()),L=pt.length,u=nrm([pt[L-1][0]-pt[L-2][0],pt[L-1][1]-pt[L-2][1]]);pt[L-1][0]-=u[0]*14;pt[L-1][1]-=u[1]*14;
+   h+=`<polyline points="${pt.map(p=>p.join(",")).join(" ")}" fill="none" stroke="#f59e0b" stroke-opacity=".85" stroke-width="14" stroke-linejoin="round" marker-end="url(#ah)" pointer-events="none"/>`;});
+  h+=`</g>`;
+  s.innerHTML=h;
+ }
 
  $("modeBadge").textContent=modeLabel(activeMode);
  $("switchModeBtn").style.display=ROOM_CODE?"inline-block":"none";
- $("confirmStartBtn").style.display=(ROOM_CODE && !clockState.running && !isGameOverNow())?"inline-block":"none";
+ $("confirmStartBtn").style.display=(ROOM_CODE && !isMono && !clockState.running && !isGameOverNow())?"inline-block":"none";
 
- const finalStatus = isDraw ? "Remis" : (status || timeoutStatus);
- const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
- const waitPrefix = (!clockState.running && !finalStatus && w<0 && !serverGameOver) ? "[Czeka na start] " : "";
- turn_.textContent=finalStatus?finalStatus:w>=0?`Wygrywa: ${playerName(w)} — wygrales fartem`:`${waitPrefix}Ruch: ${playerName(turn)}${turn===MY_SEAT?" (TWÓJ)":""}${inCheck(turn)?" – SZACH!":""}`;
- turn_.style.color=cl[w>=0?w:turn];
-
- const drawBtn=$("drawBtn");
- if(MY_SEAT>=0 && !finalStatus && w<0 && !serverGameOver){
-  drawBtn.style.display="inline-block";
-  if(drawOfferBy===null){
-   drawBtn.classList.remove("on");
-   drawBtn.textContent="Remis";
-  } else if(drawOfferBy===MY_SEAT){
-   drawBtn.classList.add("on");
-   drawBtn.textContent="Anuluj remis";
-  } else {
-   drawBtn.classList.add("on");
-   drawBtn.textContent=`Akceptuj remis (${playerName(drawOfferBy)})`;
-  }
- } else {
-  drawBtn.style.display="none";
- }
-
- const gameKey = `${activeMode}|${mv.length}|${w}|${finalStatus}|${serverGameOver}`;
- if((w>=0 || finalStatus) && pos===mv.length && endShownForKey!==gameKey){
-  endShownForKey=gameKey;
-  if(w>=0){
-   const winName=playerName(w);
-   $("endTitle").textContent=`Wygrywa ${winName}!`;
-   $("endSub").textContent=`${winName} — wygrales fartem`;
-   $("endSub").style.color=cl[w];
-  } else {
-   $("endTitle").textContent="Partia zakończona";
-   $("endSub").textContent=finalStatus;
-   $("endSub").style.color="var(--fg)";
-  }
-  $("endReset").style.display=IS_HOST?"inline-block":"none";
-  $("endOv").style.display="flex";
- } else if(w<0 && !finalStatus){
-  endShownForKey="";
+ if(isMono){
+  const curP = seatedCount()<=1 ? monoState.soloActiveSeat : monoState.turn;
+  const colHex = PAL[cols[curP]??0]?.[1] || "#fbbf24";
+  turn_.textContent = `Monopoly • Tura: Pionek ${curP+1} (${playerName(curP)})`;
+  turn_.style.color = colHex;
+  $("drawBtn").style.display="none";
   $("endOv").style.display="none";
+ }else{
+  const cl=cols.slice(0,3).map(i=>PAL[i][1]);
+  const finalStatus = isDraw ? "Remis" : (status || timeoutStatus);
+  const w=alive.reduce((x,y)=>x+y,0)==1?alive.indexOf(1):-1;
+  const waitPrefix = (!clockState.running && !finalStatus && w<0 && !serverGameOver) ? "[Czeka na start] " : "";
+  turn_.textContent=finalStatus?finalStatus:w>=0?`Wygrywa: ${playerName(w)} — wygrales fartem`:`${waitPrefix}Ruch: ${playerName(turn)}${turn===MY_SEAT?" (TWÓJ)":""}${inCheck(turn)?" – SZACH!":""}`;
+  turn_.style.color=cl[w>=0?w:turn];
+
+  const drawBtn=$("drawBtn");
+  if(MY_SEAT>=0 && !finalStatus && w<0 && !serverGameOver){
+   drawBtn.style.display="inline-block";
+   if(drawOfferBy===null){
+    drawBtn.classList.remove("on");
+    drawBtn.textContent="Remis";
+   } else if(drawOfferBy===MY_SEAT){
+    drawBtn.classList.add("on");
+    drawBtn.textContent="Anuluj remis";
+   } else {
+    drawBtn.classList.add("on");
+    drawBtn.textContent=`Akceptuj remis (${playerName(drawOfferBy)})`;
+   }
+  } else {
+   drawBtn.style.display="none";
+  }
+
+  const gameKey = `${activeMode}|${mv.length}|${w}|${finalStatus}|${serverGameOver}`;
+  if((w>=0 || finalStatus) && pos===mv.length && endShownForKey!==gameKey){
+   endShownForKey=gameKey;
+   if(w>=0){
+    const winName=playerName(w);
+    $("endTitle").textContent=`Wygrywa ${winName}!`;
+    $("endSub").textContent=`${winName} — wygrales fartem`;
+    $("endSub").style.color=cl[w];
+   } else {
+    $("endTitle").textContent="Partia zakończona";
+    $("endSub").textContent=finalStatus;
+    $("endSub").style.color="var(--fg)";
+   }
+   $("endReset").style.display=IS_HOST?"inline-block":"none";
+   $("endOv").style.display="flex";
+  } else if(w<0 && !finalStatus){
+   endShownForKey="";
+   $("endOv").style.display="none";
+  }
  }
 
  undo.disabled=pos==0;redo.disabled=pos>=mv.length;
- $("live").style.display=pos<mv.length?"inline-block":"none";
+ $("live").style.display=(!isMono && pos<mv.length)?"inline-block":"none";
  $("colors").style.display=MY_SEAT>=0?"inline-block":"none";
  $("reset").style.display=IS_HOST?"inline-block":"none";
 
- const {remainingMs}=getLiveClocks();
- const gameOver=isGameOverNow();
- $("seats").innerHTML=[0,1,2].map(o=>{
-  const occ=SEATS[o];
-  const isThinking=!gameOver && clockState.running && turn===o && alive[o];
-  const metaText=isThinking?"Myśli teraz...":alive[o]?"Pozostały czas":(timeoutEliminated[o]?"Czas minął":"Odpadł");
-  return `<div class="seat ${o===MY_SEAT?"me":""} ${isThinking?"thinking":""} ${!alive[o]?"eliminated":""}">
-   <div class="seat-top">
-    <span><span class="dot" style="display:inline-block;background:${cl[o]};margin-right:6px"></span>${occ?occ.name:"<i>Wolne miejsce</i>"}</span>
-    ${!occ?`<button style="min-height:26px;padding:0 8px;font-size:12px" onclick="socket.emit('takeSeat',${o})">Usiądź</button>`:""}
-   </div>
-   <div class="seat-meta">
-    <span>${metaText}</span>
-    <span class="think-val" id="think-${o}">${formatDuration(remainingMs[o])}</span>
-   </div>
-  </div>`;
- }).join("");
+ const seatIndices = isMono
+  ? Array.from({length:monoState.playerCount},(_,i)=>i)
+  : [0,1,2];
 
- renderClocks();
+ if(isMono){
+  $("seats").innerHTML=seatIndices.map(o=>{
+   const occ=SEATS[o];
+   const colHex=PAL[cols[o]??0]?.[1]||"#e52521";
+   const posIdx=animPositions[o]??0;
+   const tileName=MONO_TILES[posIdx]?.name||"START";
+   const isCur=(seatedCount()<=1 ? monoState.soloActiveSeat===o : monoState.turn===o);
+   return `<div class="seat ${o===MY_SEAT?"me":""} ${isCur?"thinking":""}">
+    <div class="seat-top">
+     <span><span class="dot" style="display:inline-block;background:${colHex};margin-right:6px"></span>Pionek ${o+1}: ${occ?occ.name:"<i>Wolne miejsce</i>"}</span>
+     ${!occ?`<button style="min-height:26px;padding:0 8px;font-size:12px" onclick="socket.emit('takeSeat',${o})">Usiądź</button>`:""}
+    </div>
+    <div class="seat-meta">
+     <span>Pole: ${tileName}</span>
+     <span class="think-val">#${posIdx}</span>
+    </div>
+   </div>`;
+  }).join("");
 
- $("list").innerHTML=notes.map((n,idx)=>`<li class="${idx===pos-1?"cur":""}" onclick="jump(${idx+1})"><span class="dot" style="background:${cl[n.o]}"></span><span>${idx+1}. ${n.text}</span></li>`).join("");
- const lst=$("list");if(pos===mv.length)lst.scrollTop=lst.scrollHeight;
+  $("list").innerHTML=monoLog.slice().reverse().map((txt,idx)=>{
+   const pIdx=(monoState.turn - 1 - idx + monoState.playerCount*4) % monoState.playerCount;
+   const colHex=PAL[cols[pIdx]??0]?.[1]||"#d9a45b";
+   return `<li><span class="dot" style="background:${colHex}"></span><span>${txt}</span></li>`;
+  }).join("");
+ }else{
+  const cl=cols.slice(0,3).map(i=>PAL[i][1]);
+  const {remainingMs}=getLiveClocks();
+  const gameOver=isGameOverNow();
+  $("seats").innerHTML=[0,1,2].map(o=>{
+   const occ=SEATS[o];
+   const isThinking=!gameOver && clockState.running && turn===o && alive[o];
+   const metaText=isThinking?"Myśli teraz...":alive[o]?"Pozostały czas":(timeoutEliminated[o]?"Czas minął":"Odpadł");
+   return `<div class="seat ${o===MY_SEAT?"me":""} ${isThinking?"thinking":""} ${!alive[o]?"eliminated":""}">
+    <div class="seat-top">
+     <span><span class="dot" style="display:inline-block;background:${cl[o]};margin-right:6px"></span>${occ?occ.name:"<i>Wolne miejsce</i>"}</span>
+     ${!occ?`<button style="min-height:26px;padding:0 8px;font-size:12px" onclick="socket.emit('takeSeat',${o})">Usiądź</button>`:""}
+    </div>
+    <div class="seat-meta">
+     <span>${metaText}</span>
+     <span class="think-val" id="think-${o}">${formatDuration(remainingMs[o])}</span>
+    </div>
+   </div>`;
+  }).join("");
+
+  renderClocks();
+
+  $("list").innerHTML=notes.map((n,idx)=>`<li class="${idx===pos-1?"cur":""}" onclick="jump(${idx+1})"><span class="dot" style="background:${cl[n.o]}"></span><span>${idx+1}. ${n.text}</span></li>`).join("");
+  const lst=$("list");if(pos===mv.length)lst.scrollTop=lst.scrollHeight;
+ }
 }
 
 window.jump=n=>{rebuild(n,true);draw();};
 
 const $=id=>document.getElementById(id),s=$("s"),turn_=$("turn"),lab=$("lab"),undo=$("undo"),redo=$("redo");
 const cellAt=(x,y)=>{const t=document.elementFromPoint(x,y);const c=t&&t.closest&&t.closest("[data-i]");return c?+c.dataset.i:null;};
-const over=()=>alive.reduce((x,y)=>x+y,0)<2||!!status||!!timeoutStatus||isDraw||serverGameOver;
+const over=()=>activeMode==="monopoly"||alive.reduce((x,y)=>x+y,0)<2||!!status||!!timeoutStatus||isDraw||serverGameOver;
 
 s.addEventListener("contextmenu",e=>e.preventDefault());
 s.addEventListener("pointerdown",e=>{if(e.button==2||arrMode)rs=cellAt(e.clientX,e.clientY);});
@@ -777,12 +1099,35 @@ $("drawBtn").onclick=()=>socket.emit("offerDraw");
 $("endClose").onclick=()=>{$("endOv").style.display="none";};
 $("endReset").onclick=()=>{$("endOv").style.display="none";socket.emit("resetGame");};
 
+$("rollDiceBtn").onclick=()=>{
+ if(isRollingAnim||MY_SEAT<0)return;
+ const override = seatedCount()<=1 ? monoState.soloActiveSeat : undefined;
+ socket.emit("monopolyRoll", override);
+};
+
 $("confirmStartBtn").onclick=()=>socket.emit("confirmStart");
+
+function syncLobbyModeUI(){
+ $("modePick").querySelectorAll(".mode-card").forEach(el=>{
+  el.classList.toggle("sel",el.dataset.mode===lobbyMode);
+ });
+ const isMono = lobbyMode==="monopoly";
+ $("chessTimeRow").style.display = isMono ? "none" : "flex";
+ $("monoPlayersRow").style.display = isMono ? "flex" : "none";
+}
 
 function syncRoomModeModal(){
  $("roomModePick").querySelectorAll(".mode-card").forEach(el=>{
   el.classList.toggle("sel",el.dataset.mode===activeMode);
  });
+ const isMono = activeMode==="monopoly";
+ $("roomChessTimeBlock").style.display = isMono ? "none" : "block";
+ $("roomMonoPlayersBlock").style.display = isMono ? "block" : "none";
+
+ $("roomMonoPlayersPick").querySelectorAll(".time-btn").forEach(el=>{
+  el.classList.toggle("sel",Number(el.dataset.pcount)===monoState.playerCount);
+ });
+
  const curMins=clockState.totalMinutes||120;
  $("roomTimePick").querySelectorAll(".time-btn").forEach(el=>{
   el.classList.toggle("sel",Number(el.dataset.mins)===curMins);
@@ -805,10 +1150,19 @@ $("switchModeBtn").onclick=()=>{
 $("closeModeSwitch").onclick=()=>{$("modeSwitchOv").style.display="none";};
 $("roomModePick").addEventListener("click",e=>{
  const card=e.target.closest(".mode-card");
- if(!card||card.disabled||card.dataset.mode==="monopoly")return;
- const nextMode=card.dataset.mode==="big"?"big":"classic";
+ if(!card||card.disabled)return;
+ const nextMode=card.dataset.mode;
  if(nextMode!==activeMode && ROOM_CODE){
-  socket.emit("changeMode",nextMode);
+  socket.emit("changeMode",nextMode,{monopolyPlayers:lobbyMonoPlayers});
+ }
+});
+$("roomMonoPlayersPick").addEventListener("click",e=>{
+ const btn=e.target.closest(".time-btn");
+ if(!btn||!ROOM_CODE)return;
+ const cnt=Number(btn.dataset.pcount);
+ if([2,3,4].includes(cnt)){
+  lobbyMonoPlayers=cnt;
+  socket.emit("setMonopolyPlayers",cnt);
  }
 });
 $("roomTimePick").addEventListener("click",e=>{
@@ -842,12 +1196,26 @@ $("reset").onclick=e=>{
 
 $("modePick").addEventListener("click",e=>{
  const card=e.target.closest(".mode-card");
- if(!card||card.disabled||card.dataset.mode==="monopoly")return;
- lobbyMode=card.dataset.mode==="big"?"big":"classic";
- $("modePick").querySelectorAll(".mode-card").forEach(el=>el.classList.toggle("sel",el.dataset.mode===lobbyMode));
- setBoardMode(lobbyMode);
- rebuild(0,true);
+ if(!card||card.disabled)return;
+ lobbyMode=card.dataset.mode;
+ syncLobbyModeUI();
+ if(lobbyMode!=="monopoly"){
+  setBoardMode(lobbyMode);
+  rebuild(0,true);
+ }
  draw();
+});
+
+$("lobbyMonoPlayers").addEventListener("click",e=>{
+ const btn=e.target.closest(".time-btn");
+ if(!btn)return;
+ const cnt=Number(btn.dataset.pcount);
+ if([2,3,4].includes(cnt)){
+  lobbyMonoPlayers=cnt;
+  monoState.playerCount=cnt;
+  $("lobbyMonoPlayers").querySelectorAll(".time-btn").forEach(el=>el.classList.toggle("sel",Number(el.dataset.pcount)===cnt));
+  draw();
+ }
 });
 
 function updateTimeHint(){
@@ -906,10 +1274,12 @@ if(urlRoom) $("codeIn").value=urlRoom.toUpperCase();
 $("nick").value=localStorage.getItem("sz3_nick")||"";
 
 function setBoardMode(mode){
- const nextMode=mode==="big"?"big":"classic";
+ const nextMode=mode==="monopoly"?"monopoly":(mode==="big"?"big":"classic");
  if(nextMode!==activeMode){
   activeMode=nextMode;
-  geom=buildBoardGeometry(activeMode);
+  if(nextMode!=="monopoly"){
+   geom=buildBoardGeometry(nextMode);
+  }
   arrows=[];marks.clear();sel=null;hl=[];
  }
 }
@@ -923,7 +1293,8 @@ function enterRoom(code){
   name:nick,
   preferredColor:lobbyColor,
   gameMode:lobbyMode,
-  totalMinutes:lobbyMinutes
+  totalMinutes:lobbyMinutes,
+  monopolyPlayers:lobbyMonoPlayers
  },res=>{
   if(res.error){$("lobbyErr").textContent=res.error;return;}
   ROOM_CODE=res.state.code;
@@ -931,7 +1302,7 @@ function enterRoom(code){
   history.replaceState(null,"",`?room=${ROOM_CODE}`);
   $("roomTag").textContent=`Pokój: ${ROOM_CODE} 📋`;
   syncState(res.state,true);
-  if(MY_SEAT>=0 && res.state.mv.length===0) openPick();
+  if(MY_SEAT>=0 && res.state.mv.length===0 && res.state.mode!=="monopoly") openPick();
  });
 }
 
@@ -940,13 +1311,39 @@ $("joinBtn").onclick=()=>enterRoom($("codeIn").value);
 
 function syncState(st,initial=false){
  setBoardMode(st.mode);
- SEATS=st.seats;
+ SEATS=Array.isArray(st.seats)?st.seats:[null,null,null,null];
  IS_HOST=(st.hostId===socket.id);
  MY_SEAT=SEATS.findIndex(s=>s&&s.id===socket.id);
- cols=st.cols;
+ cols=Array.isArray(st.cols)?st.cols:[0,1,2,4];
  drawOfferBy=st.drawOfferBy ?? null;
  isDraw=!!st.isDraw;
  serverGameOver=!!st.gameOver;
+
+ if(st.monopoly){
+  const prevSeq = monoState.rollSeq || 0;
+  const oldPositions = [...animPositions];
+  monoState = {
+   playerCount: st.monopoly.playerCount || 4,
+   positions: Array.isArray(st.monopoly.positions) ? [...st.monopoly.positions] : [0,0,0,0],
+   turn: st.monopoly.turn || 0,
+   dice: Array.isArray(st.monopoly.dice) ? [...st.monopoly.dice] : [1,1],
+   rollSeq: st.monopoly.rollSeq || 0,
+   soloActiveSeat: st.monopoly.soloActiveSeat || 0
+  };
+  if(initial || (monoState.rollSeq === 0 && prevSeq > 0)){
+   animPositions=[...monoState.positions];
+   monoLog=[];
+   lastHandledRollSeq=monoState.rollSeq;
+   isRollingAnim=false;
+  }else if(monoState.rollSeq > lastHandledRollSeq){
+   lastHandledRollSeq=monoState.rollSeq;
+   animPositions=oldPositions;
+   animateMonopolyRoll(monoState);
+  }else if(!isRollingAnim){
+   animPositions=[...monoState.positions];
+  }
+ }
+
  if(st.clock){
   const mins=st.clock.totalMinutes||st.totalMinutes||120;
   const perPlayer=st.clock.perPlayerMs||Math.floor((mins*60*1000)/3);
@@ -965,11 +1362,13 @@ function syncState(st,initial=false){
   };
  }
  const prevLen=mv.length;
- mv=st.mv;
- if(initial || pos===prevLen || mv.length<pos){
-  rebuild(mv.length, initial);
- } else {
-  rebuild(pos, true);
+ mv=st.mv||[];
+ if(activeMode!=="monopoly"){
+  if(initial || pos===prevLen || mv.length<pos){
+   rebuild(mv.length, initial);
+  } else {
+   rebuild(pos, true);
+  }
  }
  if($("ov").style.display==="flex") openPick();
  if($("modeSwitchOv").style.display==="flex") syncRoomModeModal();
