@@ -227,6 +227,19 @@ io.on("connection", socket => {
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
+  socket.on("changeTime", nextMinutes => {
+    if (!currentRoom) return;
+    const mins = normalizeTotalMinutes(nextMinutes);
+    const now = Date.now();
+    const wasRunning = !!(currentRoom.clock && currentRoom.clock.running);
+    currentRoom.totalMinutes = mins;
+    currentRoom.drawOfferBy = null;
+    currentRoom.isDraw = false;
+    currentRoom.gameOver = false;
+    currentRoom.clock = createClockState(now, mins, wasRunning || hasFullLobby(currentRoom));
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
+  });
+
   socket.on("changeMode", nextMode => {
     if (!currentRoom) return;
     const mode = normalizeMode(nextMode);
