@@ -242,20 +242,91 @@ function setup(){
   row.forEach((r,i)=>{B[r.c]={t:S.set[i],o,moved:0};const f=go(r.c,(r.e+2)%4);if(f)B[f[0]]={t:"p",o,h:(f[1]+2)%4,moved:0};});});
 }
 
-const arrowPath=(a,z)=>{
- for(let e=0;e<8;e++){const r=e<4?rays(a,e):drays(a,e-4),i=r.indexOf(z);if(i>=0)return[a,...r.slice(0,i+1)];}
- if(knight(a).includes(z)){
-  for(let e=0;e<4;e++){const p=go(a,e);if(!p)continue;const q=go(p[0],(p[1]+2)%4);if(!q)continue;for(const t of[1,3]){const d=go(q[0],(q[1]+t)%4);if(d&&d[0]==z)return[a,p[0],q[0],z];}}
-  for(let e=0;e<4;e++){const p=go(a,e);if(!p)continue;for(const t of[1,3]){const q=go(p[0],(p[1]+t)%4);if(!q)continue;const d=go(q[0],(q[1]+2)%4);if(d&&d[0]==z)return[a,p[0],q[0],z];}}}
- return null;};
 const slide=(list,me)=>{const r=[];for(const d of list){if(B[d]==null){r.push(d);continue}if(B[d].o!=me)r.push(d);break}return r;};
 const rays=(c,e)=>{const r=[];let x=go(c,e);while(x){r.push(x[0]);x=go(x[0],(x[1]+2)%4);}return r;};
-const dnext=(c,k)=>{const l=vm.get(cells[c].keys[k]);if(l.length!=4)return null;const d=l.find(o=>o!=c&&!cells[c].n.some(n=>n&&n[0]==o));return d==null?null:[d,cells[d].keys.indexOf(cells[c].keys[k])];};
+const dnext=(c,k)=>{
+ const vk=cells[c].keys[k],l=vm.get(vk);
+ if(!l||l.length<4)return null;
+ const sameColorNonAdj=l.filter(o=>o!=c&&col[o]===col[c]&&!cells[c].n.some(n=>n&&n[0]==o));
+ if(!sameColorNonAdj.length)return null;
+ if(sameColorNonAdj.length===1){
+  const d=sameColorNonAdj[0];
+  return [d,cells[d].keys.indexOf(vk)];
+ }
+ const vPt=cells[c].pts[k],cCtr=cells[c].ctr;
+ const vecIn=[vPt[0]-cCtr[0],vPt[1]-cCtr[1]];
+ let best=null,bestScore=-Infinity;
+ for(const o of sameColorNonAdj){
+  const oCtr=cells[o].ctr;
+  const vecOut=[oCtr[0]-vPt[0],oCtr[1]-vPt[1]];
+  const l1=Math.hypot(...vecIn)||1,l2=Math.hypot(...vecOut)||1;
+  const cos=(vecIn[0]*vecOut[0]+vecIn[1]*vecOut[1])/(l1*l2);
+  if(cos>bestScore){bestScore=cos;best=o;}
+ }
+ return best==null?null:[best,cells[best].keys.indexOf(vk)];
+};
 const drays=(c,k)=>{const r=[];let x=dnext(c,k);while(x){r.push(x[0]);x=dnext(x[0],(x[1]+2)%4);}return r;};
-function knight(c){const s=new Set();for(let e=0;e<4;e++){const a=go(c,e);if(!a)continue;
- const b=go(a[0],(a[1]+2)%4);if(b)[1,3].forEach(t=>{const d=go(b[0],(b[1]+t)%4);d&&s.add(d[0]);});
- [1,3].forEach(t=>{const b2=go(a[0],(a[1]+t)%4);if(!b2)return;const d=go(b2[0],(b2[1]+2)%4);d&&s.add(d[0]);});}
- s.delete(c);return[...s];}
+
+function knightPaths(c){
+ const res=new Map();
+ const add=(target,path)=>{if(target!==c&&!res.has(target))res.set(target,path);};
+ for(let e=0;e<4;e++){
+  const a=go(c,e);
+  if(!a)continue;
+  const oppA=(a[1]+2)%4;
+  const b=go(a[0],oppA);
+  if(b){
+   const oppB=(b[1]+2)%4;
+   [1,3].forEach(t=>{
+    const d=go(b[0],(b[1]+t)%4);
+    if(d)add(d[0],[c,a[0],b[0],d[0]]);
+   });
+   const vk=(t)=>cells[b[0]].keys[(b[1]+t)%4];
+   [0,1].forEach(idx=>{
+    const k=vk(idx),l=vm.get(k);
+    if(l&&l.length===6){
+     l.forEach(o=>{
+      if(o!==b[0]&&col[o]!==col[b[0]]&&!cells[b[0]].n.some(n=>n&&n[0]===o)){
+       add(o,[c,a[0],b[0],o]);
+      }
+     });
+    }
+   });
+  }
+  [1,3].forEach(t=>{
+   const b2=go(a[0],(a[1]+t)%4);
+   if(!b2)return;
+   const d=go(b2[0],(b2[1]+2)%4);
+   if(d)add(d[0],[c,a[0],b2[0],d[0]]);
+  });
+  [0,1].forEach(idx=>{
+   const k=cells[a[0]].keys[(a[1]+idx)%4],l=vm.get(k);
+   if(l&&l.length===6){
+    l.forEach(o=>{
+     if(o!==a[0]&&col[o]!==col[a[0]]&&!cells[a[0]].n.some(n=>n&&n[0]===o)){
+      const ki=cells[o].keys.indexOf(k);
+      if(ki>=0){
+       [ki,(ki+3)%4].forEach(edgeO=>{
+        const d=go(o,edgeO);
+        if(d&&d[0]!==a[0]&&d[0]!==c)add(d[0],[c,a[0],o,d[0]]);
+       });
+      }
+     }
+    });
+   }
+  });
+ }
+ return res;
+}
+function knight(c){return[...knightPaths(c).keys()];}
+
+const arrowPath=(a,z)=>{
+ for(let e=0;e<8;e++){const r=e<4?rays(a,e):drays(a,e-4),i=r.indexOf(z);if(i>=0)return[a,...r.slice(0,i+1)];}
+ const kp=knightPaths(a);
+ if(kp.has(z))return kp.get(z);
+ return null;
+};
+
 function pseudo(c){const p=B[c],me=p.o;let out=[];
  const R=()=>[0,1,2,3].forEach(e=>out.push(...slide(rays(c,e),me)));
  const Bi=()=>[0,1,2,3].forEach(k=>out.push(...slide(drays(c,k),me)));
