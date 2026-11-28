@@ -31,7 +31,7 @@ function genCode() {
   return rooms.has(code) ? genCode() : code;
 }
 
-function createClockState(now = Date.now(), totalMinutes = DEFAULT_TOTAL_MINUTES) {
+function createClockState(now = Date.now(), totalMinutes = DEFAULT_TOTAL_MINUTES, started = false) {
   const mins = normalizeTotalMinutes(totalMinutes);
   const perPlayerMs = Math.floor((mins * 60 * 1000) / 3);
   return {
@@ -42,13 +42,27 @@ function createClockState(now = Date.now(), totalMinutes = DEFAULT_TOTAL_MINUTES
     remainingMs: [perPlayerMs, perPlayerMs, perPlayerMs],
     activeTurn: 0,
     lastTickAt: now,
-    running: true
+    running: !!started
   };
+}
+
+function hasFullLobby(room) {
+  return Array.isArray(room.seats) && room.seats.filter(Boolean).length >= 3;
+}
+
+function maybeAutoStartClock(room, now = Date.now()) {
+  if (!room.clock) {
+    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES, false);
+  }
+  if (!room.isDraw && !room.gameOver && !room.clock.running && hasFullLobby(room)) {
+    room.clock.running = true;
+    room.clock.lastTickAt = now;
+  }
 }
 
 function syncClocks(room, now = Date.now(), isGameOver = false) {
   if (!room.clock) {
-    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES);
+    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES, false);
   }
   const clk = room.clock;
   if (!Array.isArray(clk.remainingMs)) {
@@ -69,12 +83,13 @@ function syncClocks(room, now = Date.now(), isGameOver = false) {
   clk.lastTickAt = now;
   if (isGameOver) {
     clk.running = false;
+    room.gameOver = true;
   }
 }
 
 function getClockSnapshot(room, now = Date.now()) {
   if (!room.clock) {
-    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES);
+    room.clock = createClockState(now, room.totalMinutes || DEFAULT_TOTAL_MINUTES, false);
   }
   const clk = room.clock;
   const base = clk.perPlayerMs || Math.floor((DEFAULT_TOTAL_MINUTES * 60 * 1000) / 3);
@@ -110,6 +125,7 @@ function getRoomState(room, now = Date.now()) {
     mv: room.mv,
     drawOfferBy: room.drawOfferBy,
     isDraw: room.isDraw,
+    gameOver: !!room.gameOver,
     clock: getClockSnapshot(room, now)
   };
 }
@@ -137,13 +153,14 @@ io.on("connection", socket => {
         mv: [],
         drawOfferBy: null,
         isDraw: false,
-        clock: createClockState(now, mins)
+        gameOver: false,
+        clock: createClockState(now, mins, false)
       };
       rooms.set(code, room);
     } else {
       room = rooms.get(code);
       if (!room) return cb({ error: "Nie znaleziono pokoju o takim kodzie." });
-      syncClocks(room, now, !!room.isDraw);
+      syncClocks(room, now, !!(room.isDraw || room.gameOver));
     }
 
     currentRoom = room;
@@ -168,6 +185,7 @@ io.on("connection", socket => {
       }
     }
 
+    maybeAutoStartClock(room, now);
     const snap = getRoomState(room, now);
     cb({ ok: true, seat, state: snap });
     io.to(code).emit("roomUpdate", snap);
@@ -177,11 +195,12 @@ io.on("connection", socket => {
     if (!currentRoom || seatIdx < 0 || seatIdx > 2) return;
     if (currentRoom.seats[seatIdx]) return;
     const now = Date.now();
-    syncClocks(currentRoom, now, !!currentRoom.isDraw);
+    syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
     const old = currentRoom.seats.findIndex(s => s && s.id === socket.id);
     const oldName = old !== -1 ? currentRoom.seats[old]?.name : null;
     if (old !== -1) currentRoom.seats[old] = null;
     currentRoom.seats[seatIdx] = { id: socket.id, name: socket.data.name || oldName || "Gracz" };
+    maybeAutoStartClock(currentRoom, now);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
@@ -192,7 +211,7 @@ io.on("connection", socket => {
     if (seat !== -1) {
       currentRoom.seats[seat].name = socket.data.name;
       const now = Date.now();
-      syncClocks(currentRoom, now, !!currentRoom.isDraw);
+      syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
       io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
     }
   });
@@ -204,12 +223,38 @@ io.on("connection", socket => {
     if (currentRoom.cols.includes(colIdx)) return;
     currentRoom.cols[seat] = colIdx;
     const now = Date.now();
-    syncClocks(currentRoom, now, !!currentRoom.isDraw);
+    syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
+  });
+
+  socket.on("changeMode", nextMode => {
+    if (!currentRoom) return;
+    const mode = normalizeMode(nextMode);
+    if (currentRoom.mode === mode) return;
+    const now = Date.now();
+    currentRoom.mode = mode;
+    currentRoom.mv = [];
+    currentRoom.drawOfferBy = null;
+    currentRoom.isDraw = false;
+    currentRoom.gameOver = false;
+    const shouldRun = hasFullLobby(currentRoom);
+    currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES, shouldRun);
+    io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
+  });
+
+  socket.on("confirmStart", () => {
+    if (!currentRoom) return;
+    const now = Date.now();
+    syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
+    if (!currentRoom.isDraw && !currentRoom.gameOver) {
+      currentRoom.clock.running = true;
+      currentRoom.clock.lastTickAt = now;
+    }
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
   socket.on("makeMove", (moveData, nextMeta) => {
-    if (!currentRoom || currentRoom.isDraw) return;
+    if (!currentRoom || currentRoom.isDraw || currentRoom.gameOver) return;
     const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
     if (seat === -1) return;
     if (!Array.isArray(moveData) || moveData.length < 2) return;
@@ -228,6 +273,7 @@ io.on("connection", socket => {
       }
       if (nextMeta.gameOver) {
         currentRoom.clock.running = false;
+        currentRoom.gameOver = true;
       } else {
         currentRoom.clock.running = true;
       }
@@ -237,7 +283,7 @@ io.on("connection", socket => {
   });
 
   socket.on("offerDraw", () => {
-    if (!currentRoom || currentRoom.isDraw) return;
+    if (!currentRoom || currentRoom.isDraw || currentRoom.gameOver) return;
     const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
     if (seat === -1) return;
     const now = Date.now();
@@ -248,6 +294,7 @@ io.on("connection", socket => {
       currentRoom.drawOfferBy = null;
     } else {
       currentRoom.isDraw = true;
+      currentRoom.gameOver = true;
       currentRoom.drawOfferBy = null;
       currentRoom.clock.running = false;
     }
@@ -260,14 +307,16 @@ io.on("connection", socket => {
     currentRoom.mv = [];
     currentRoom.drawOfferBy = null;
     currentRoom.isDraw = false;
-    currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES);
+    currentRoom.gameOver = false;
+    const shouldRun = hasFullLobby(currentRoom);
+    currentRoom.clock = createClockState(now, currentRoom.totalMinutes || DEFAULT_TOTAL_MINUTES, shouldRun);
     io.to(currentRoom.code).emit("roomUpdate", getRoomState(currentRoom, now));
   });
 
   socket.on("disconnect", () => {
     if (!currentRoom) return;
     const now = Date.now();
-    syncClocks(currentRoom, now, !!currentRoom.isDraw);
+    syncClocks(currentRoom, now, !!(currentRoom.isDraw || currentRoom.gameOver));
     const seat = currentRoom.seats.findIndex(s => s && s.id === socket.id);
     if (seat !== -1) currentRoom.seats[seat] = null;
     if (currentRoom.drawOfferBy === seat) currentRoom.drawOfferBy = null;
