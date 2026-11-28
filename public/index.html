@@ -61,12 +61,13 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 .time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;margin-top:6px}
 .time-btn{min-height:42px;padding:6px 8px;border-radius:8px;background:#362f29;border:2px solid transparent;font-weight:700;font-size:13px}
 .time-btn.sel{border-color:var(--ac);background:var(--ac);color:#201a13}
+.sec-lbl{width:100%;font-weight:700;margin-top:8px;font-size:13px;opacity:.9}
 </style></head><body>
 
 <div id="bar">
   <span id="roomTag" title="Kliknij, aby skopiować link zaproszenia">Pokój: —</span>
   <span id="modeBadge" class="mode-pill">Classic 3v3</span>
-  <button id="switchModeBtn" style="display:none" title="Zmień tryb gry w pokoju">Zmień tryb</button>
+  <button id="switchModeBtn" style="display:none" title="Zmień tryb, czas lub kolor w pokoju">Tryb / Czas / Kolor</button>
   <button id="confirmStartBtn" class="on" style="display:none" title="Zatwierdź start i uruchom zegary">Zatwierdź start</button>
   <span id="turn">Łączenie...</span>
   <button id="undo" title="Podgląd poprzedniego ruchu">◀</button>
@@ -154,7 +155,8 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
 
 <div id="modeSwitchOv" class="ov">
   <div class="box">
-    <h2>Zmień tryb gry</h2>
+    <h2>Ustawienia pokoju</h2>
+    <div class="sec-lbl">Tryb gry (zmiana resetuje ruchy):</div>
     <div class="mode-grid" id="roomModePick">
       <button type="button" class="mode-card" data-mode="classic">
         <span class="mode-ico">♟</span>
@@ -172,8 +174,21 @@ svg{width:min(98vw,calc(86vh*1.15));height:auto;user-select:none;touch-action:ma
         <span class="mode-sub">Wkrótce</span>
       </button>
     </div>
-    <p style="font-size:12px;opacity:.78;margin:10px 0 0">Zmiana trybu zresetuje aktualne ruchy i ustawi nową planszę dla całego pokoju.</p>
-    <button id="closeModeSwitch" class="on" style="width:100%;margin-top:12px">Zamknij</button>
+
+    <div class="sec-lbl">Czas meczu (max 3h, na 3 graczy):</div>
+    <div class="time-grid" id="roomTimePick">
+      <button type="button" class="time-btn" data-mins="30">30m</button>
+      <button type="button" class="time-btn" data-mins="60">1h</button>
+      <button type="button" class="time-btn" data-mins="120">2h</button>
+      <button type="button" class="time-btn" data-mins="180">3h</button>
+    </div>
+
+    <div id="roomColorBlock" style="display:none">
+      <div class="sec-lbl">Twój kolor:</div>
+      <div id="roomColorPick" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+    </div>
+
+    <button id="closeModeSwitch" class="on" style="width:100%;margin-top:16px">Gotowe</button>
   </div>
 </div>
 
@@ -251,9 +266,9 @@ const H={B0:[610,1300],B1:[1360,1300],R:[1730,655],T1:[1360,8],T0:[610,8],L:[240
 const M={b:[985,1300],ll:[425,977],ul:[425,331],t:[985,8],ur:[1545,331],lr:[1545,977]};
 const Q=[[H.B0,M.b,C,M.ll],[M.ll,H.L,M.ul,C],[M.ul,H.T0,M.t,C],[M.t,H.T1,M.ur,C],[M.ur,H.R,M.lr,C],[M.lr,H.B1,M.b,C]];
 const SIDES=[
-  {a:H.B0,b:H.B1,in:[0,-1],set8:"rnbqkbnr",set10:"rrnbqkbnrr"},
-  {a:H.L,b:H.T0,in:[.866,.5],set8:"rnbkqbnr",set10:"rrnbkqbnrr"},
-  {a:H.T1,b:H.R,in:[-.866,.5],set8:"rnbkqbnr",set10:"rrnbkqbnrr"}
+  {a:H.B0,b:H.B1,in:[0,-1],set8:"rnbqkbnr",set10:"rnbqkqbnr"},
+  {a:H.L,b:H.T0,in:[.866,.5],set8:"rnbkqbnr",set10:"rnbkqkbne"},
+  {a:H.T1,b:H.R,in:[-.866,.5],set8:"rnbkqbnr",set10:"rnbkqkbne"}
 ];
 
 const bil=(q,u,v)=>[0,1].map(k=>(1-u)*(1-v)*q[0][k]+u*(1-v)*q[1][k]+u*v*q[2][k]+(1-u)*v*q[3][k]);
@@ -261,13 +276,13 @@ const key=p=>p.map(x=>Math.round(x+.37)).join(",");
 const nrm=v=>{const l=Math.hypot(...v)||1;return[v[0]/l,v[1]/l]};
 
 function makeLabel(qi, i, j, gridN){
-  const letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   if(gridN===4){
     const NM=[(a,b)=>"ABCD"[a]+(b+1),(a,b)=>"ABCD"[b]+(5+a),(a,b)=>"IJKL"[a]+(8-b),(a,b)=>"LKJI"[b]+(9+a),(a,b)=>"EFGH"[a]+(12-b),(a,b)=>"HGFE"[b]+(4-a)];
     return NM[qi](i,j);
   }
-  const base=qi*3;
-  return letters[(base+(i%3))%26]+(j+1);
+  const letters="ABCDEFGHJKLMNPQRST";
+  const colChar=letters[(qi*3+(i%3))%letters.length];
+  return colChar+(j+1);
 }
 
 function buildBoardGeometry(mode){
@@ -419,6 +434,16 @@ function emitMoveWithMeta(a,b,promo){
  socket.emit("makeMove",[a,b,promo||null],{nextTurn,gameOver:nextOver});
 }
 
+function backRowFor(seq, count){
+ const base=seq.split("").map(ch=>ch==="e"?"n":ch);
+ if(base.length===count)return base;
+ while(base.length<count){
+  const mid=Math.floor(base.length/2);
+  base.splice(mid,0,"p");
+ }
+ return base.slice(0,count);
+}
+
 function setup(){
  const total=geom.cells.length;
  B=Array(total).fill(null);
@@ -434,9 +459,10 @@ function setup(){
   });
   row.sort((x,y)=>x.t-y.t);
   homeRow[o]=row.map(r=>r.c);
-  const seq=row.length>=10?S.set10:S.set8;
+  const rawSeq=row.length>=10?S.set10:S.set8;
+  const seq=backRowFor(rawSeq,row.length);
   row.forEach((r,i)=>{
-   const pt=seq[i]||"p";
+   const pt=seq[i]||"r";
    B[r.c]={t:pt,o,moved:0};
    const f=go(r.c,(r.e+2)%4);
    if(f)B[f[0]]={t:"p",o,h:(f[1]+2)%4,moved:0};
@@ -471,7 +497,13 @@ const drays=(c,k)=>{const r=[];let x=dnext(c,k);while(x){r.push(x[0]);x=dnext(x[
 
 function knightPaths(c){
  const res=new Map();
- const add=(target,path)=>{if(target!==c&&!res.has(target))res.set(target,path);};
+ const me=B[c]?.o;
+ const add=(target,path)=>{
+  if(target==null||target===c||target<0||target>=geom.cells.length)return;
+  if(me!=null && B[target] && B[target].o===me)return;
+  if(!res.has(target))res.set(target,path);
+ };
+
  for(let e=0;e<4;e++){
   const a=go(c,e);
   if(!a)continue;
@@ -482,16 +514,6 @@ function knightPaths(c){
     const d=go(b[0],(b[1]+t)%4);
     if(d)add(d[0],[c,a[0],b[0],d[0]]);
    });
-   [0,1].forEach(idx=>{
-    const k=geom.cells[b[0]].keys[(b[1]+idx)%4],l=geom.vm.get(k);
-    if(l&&l.length===6){
-     l.forEach(o=>{
-      if(o!==b[0]&&geom.col[o]!==geom.col[b[0]]&&!geom.cells[b[0]].n.some(n=>n&&n[0]===o)){
-       add(o,[c,a[0],b[0],o]);
-      }
-     });
-    }
-   });
   }
   [1,3].forEach(t=>{
    const b2=go(a[0],(a[1]+t)%4);
@@ -499,23 +521,23 @@ function knightPaths(c){
    const d=go(b2[0],(b2[1]+2)%4);
    if(d)add(d[0],[c,a[0],b2[0],d[0]]);
   });
-  [0,1].forEach(idx=>{
-   const k=geom.cells[a[0]].keys[(a[1]+idx)%4],l=geom.vm.get(k);
-   if(l&&l.length===6){
-    l.forEach(o=>{
-     if(o!==a[0]&&geom.col[o]!==geom.col[a[0]]&&!geom.cells[a[0]].n.some(n=>n&&n[0]===o)){
-      const ki=geom.cells[o].keys.indexOf(k);
-      if(ki>=0){
-       [ki,(ki+3)%4].forEach(edgeO=>{
-        const d=go(o,edgeO);
-        if(d&&d[0]!==a[0]&&d[0]!==c)add(d[0],[c,a[0],o,d[0]]);
-       });
-      }
-     }
-    });
-   }
-  });
  }
+
+ const cKeys=geom.cells[c].keys;
+ for(let k=0;k<4;k++){
+  const vk=cKeys[k];
+  const verts=geom.vm.get(vk);
+  if(!verts||verts.length<4)continue;
+  const opp=verts.filter(o=>o!==c && geom.col[o]!==geom.col[c] && !geom.cells[c].n.some(n=>n&&n[0]===o));
+  for(const o of opp){
+   const ki=geom.cells[o].keys.indexOf(vk);
+   if(ki<0)continue;
+   const oppEdge=(ki+2)%4;
+   const d=go(o,oppEdge);
+   if(d && d[0]!==c)add(d[0],[c,o,d[0]]);
+  }
+ }
+
  return res;
 }
 function knight(c){return[...knightPaths(c).keys()];}
@@ -761,6 +783,20 @@ function syncRoomModeModal(){
  $("roomModePick").querySelectorAll(".mode-card").forEach(el=>{
   el.classList.toggle("sel",el.dataset.mode===activeMode);
  });
+ const curMins=clockState.totalMinutes||120;
+ $("roomTimePick").querySelectorAll(".time-btn").forEach(el=>{
+  el.classList.toggle("sel",Number(el.dataset.mins)===curMins);
+ });
+ const colorBlock=$("roomColorBlock");
+ if(MY_SEAT>=0){
+  colorBlock.style.display="block";
+  $("roomColorPick").innerHTML=PAL.map((c,i)=>{
+   const taken=cols.includes(i)&&cols[MY_SEAT]!==i;
+   return `<button type="button" class="sw ${cols[MY_SEAT]==i?"sel":""}" data-i="${i}" ${taken?"disabled":""} title="${c[0]}" style="background:${c[1]}"></button>`;
+  }).join("");
+ }else{
+  colorBlock.style.display="none";
+ }
 }
 $("switchModeBtn").onclick=()=>{
  syncRoomModeModal();
@@ -771,9 +807,22 @@ $("roomModePick").addEventListener("click",e=>{
  const card=e.target.closest(".mode-card");
  if(!card||card.disabled||card.dataset.mode==="monopoly")return;
  const nextMode=card.dataset.mode==="big"?"big":"classic";
- $("modeSwitchOv").style.display="none";
  if(nextMode!==activeMode && ROOM_CODE){
   socket.emit("changeMode",nextMode);
+ }
+});
+$("roomTimePick").addEventListener("click",e=>{
+ const btn=e.target.closest(".time-btn");
+ if(!btn||!ROOM_CODE)return;
+ const mins=Number(btn.dataset.mins);
+ if([30,60,120,180].includes(mins)){
+  socket.emit("changeTime",mins);
+ }
+});
+$("roomColorPick").addEventListener("click",e=>{
+ const b=e.target.closest(".sw");
+ if(b && !b.disabled && MY_SEAT>=0){
+  socket.emit("changeColor",+b.dataset.i);
  }
 });
 
